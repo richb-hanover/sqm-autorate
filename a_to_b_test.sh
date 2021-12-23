@@ -53,38 +53,50 @@ fi
 ####################### SHELL TEST #######################
 echo ""
 echo "Beginning Shell OWD test now. This will take approximately 5-8 minutes..."
+echo ""
 # Start the shell autorate process in the background...
 sh /root/sqm-autorate.sh >&$shell_out <&- &
 test_pid=$!
 
 # 60 second "idle" measurement for the log...
+echo "> Beginning idle test..."
 sleep 60
 
 # Do a standard, controlled speedtest to chosen server...
+echo "> Beginning download & upload speed test..."
 speedtest-netperf.sh -H "$speedtest_server.bufferbloat.net"
 
 # 60 second trailing "idle" measurement for the log. This should indicate how well things settle
 # after the load drops back down...
+echo "> Beginning cooldown idle test..."
 sleep 60
 
 # [SIG]KILL off this test...
 kill -9 $test_pid
 
+####################### INTERMISSION #######################
+echo ""
+echo "#######################################################################"
+
 ####################### LUA TEST #######################
 echo ""
 echo "Beginning Lua OWD test now. This will take approximately 5-8 minutes..."
+echo ""
 # Start the shell autorate process in the background...
 lua /root/sqm-autorate.lua >&$lua_out <&- &
 test_pid=$!
 
 # 60 second "idle" measurement for the log...
+echo "> Beginning idle test..."
 sleep 60
 
 # Do a standard, controlled speedtest to chosen server...
+echo "> Beginning download & upload speed test..."
 speedtest-netperf.sh -H "$speedtest_server.bufferbloat.net"
 
 # 60 second trailing "idle" measurement for the log. This should indicate how well things settle
 # after the load drops back down...
+echo "> Beginning cooldown idle test..."
 sleep 60
 
 # [SIG]KILL off this test...
@@ -97,7 +109,7 @@ echo "All done!"
 if [ $service_stopped = true ]; then
     /etc/init.d/sqm-autorate start
     echo ""
-    echo "Restarted your sqm-autorate service for you..."
+    echo " > Restarted your sqm-autorate service for you. <"
     echo ""
 fi
 echo "Your Shell output has been saved in $shell_out."
