@@ -8,7 +8,7 @@ service_file="sqm-autorate.service"
 lua_file="sqm-autorate.lua"
 autorate_root="/usr/lib/sqm-autorate"
 
-repo_root="https://raw.githubusercontent.com/Fail-Safe/sqm-autorate/experimental"
+repo_root="https://raw.githubusercontent.com/Fail-Safe/sqm-autorate/port-from-shell"
 
 check_for_sqm() {
     # Check first to see if SQM is installed and if not, offer to install it...
