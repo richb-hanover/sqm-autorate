@@ -272,8 +272,8 @@ end
 test_file:close()
 
 if enable_lynx_graph_output then
-    print(string.format("%10s%20s;%20s;%20s;%20s;%20s;%20s;%20s;", " ", "log_time", "rx_load", "tx_load",
-        "min_downlink_delta", "min_uplink_delta", "cur_dl_rate", "cur_ul_rate"))
+    print(string.format("%25s;%14s;%14s;%14s;%14s;%14s;%14s;", "log_time", "rx_load", "tx_load", "min_dl_delta",
+        "min_ul_delta", "cur_dl_rate", "cur_ul_rate"))
 end
 
 if debug then
@@ -429,8 +429,11 @@ local function ratecontrol(baseline)
 
                 if enable_lynx_graph_output then
                     local out_time = string.format("%i.%.0f", lastchg_s, lastchg_ns / 1e6)
-                    print(string.format("%10s%20s;%20.2f;%20.2f;%20.2f;%20.2f;%20d;%20d;", " ", out_time, rx_load,
-                        tx_load, min_downlink_delta, min_uplink_delta, cur_dl_rate, cur_ul_rate))
+                    -- The string.char(27, 91) is 'esc' whereas the "Xm" codes are to set and reset color for the line
+                    print(string.char(27, 91) .. "31m" ..
+                              string.format("%25s;%14.2f;%14.2f;%14.2f;%14.2f;%14.2f;%14.2f;", out_time, rx_load,
+                            tx_load, min_downlink_delta, min_uplink_delta, cur_dl_rate, cur_ul_rate) ..
+                              string.char(27, 91) .. "0m")
                 end
 
                 lastchg_s, lastchg_ns = get_current_time()
@@ -514,6 +517,28 @@ local function conductor()
             baseline_prev[time_data.reflector].downlink = cur_downlink_baseline
 
             coroutine.resume(regulator, baseline_cur)
+
+            if enable_lynx_graph_output then
+                for ref, val in pairs(baseline_cur) do
+                    local cur_uplink = a_else_b(val.uplink, nil)
+                    local cur_downlink = a_else_b(val.downlink, nil)
+                    local prev_uplink = a_else_b(baseline_prev[ref].uplink, nil)
+                    local prev_downlink = a_else_b(baseline_prev[ref].downlink, nil)
+                    local delta_uplink = nil
+                    local delta_downlink = nil
+
+                    if cur_downlink and prev_downlink then
+                        delta_downlink = cur_downlink - prev_downlink
+                    end
+                    if cur_uplink and prev_uplink then
+                        delta_uplink = cur_uplink - prev_uplink
+                    end
+
+                    -- printf "%25s;%14.2f;%14.2f;%14.2f;%14.2f;%14.2f;%14.2f;\n" $reflector $prev_downlink_baseline $downlink_OWD $delta_downlink_OWD $prev_uplink_baseline $uplink_OWD $delta_uplink_OWD
+                    print(string.format("%25s;%14.2f;%14.2f;%14.2f;%14.2f;%14.2f;%14.2f;", ref, prev_downlink,
+                        cur_downlink, delta_downlink, prev_uplink, cur_uplink, delta_uplink))
+                end
+            end
 
             if enable_verbose_baseline_output then
                 for ref, val in pairs(baseline_cur) do
