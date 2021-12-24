@@ -4,6 +4,7 @@
 -- Initial Lua port by @Lochnair, @dlakelan, and @_FailSafe (OpenWrt forum)
 -- Recommended style guide: https://github.com/luarocks/lua-style-guide
 local bit = require("bit32")
+local debug = require("debug")
 local math = require("math")
 local posix = require("posix")
 local socket = require("posix.sys.socket")
@@ -81,7 +82,7 @@ local enable_verbose_output = settings and string.lower(settings:get("sqm-autora
 enable_verbose_output = 'true' == enable_verbose_output or '1' == enable_verbose_output or 'on' == enable_verbose_output
 
 ---------------------------- Begin Advanced User-Configurable Local Variables ----------------------------
-local debug = false
+local enable_debug_output = false
 local enable_verbose_baseline_output = false
 local enable_lynx_graph_output = false
 
@@ -101,9 +102,11 @@ if reflector_type == "icmp" then
                           "149.112.112.11", "149.112.112.112", "193.19.108.2", "193.19.108.3", "9.9.9.9", "9.9.9.10",
                           "9.9.9.11"}
 else
-    reflector_array_v4 = {"65.21.108.153", "5.161.66.148", "216.128.149.82", "108.61.220.16"}
+    reflector_array_v4 = {"65.21.108.153", "5.161.66.148", "216.128.149.82", "108.61.220.16", "185.243.217.26",
+                          "185.175.56.188", "176.126.70.119"}
     reflector_array_v6 = {"2a01:4f9:c010:5469::1", "2a01:4ff:f0:2194::1", "2001:19f0:5c01:1bb6:5400:03ff:febe:3fae",
-                          "2001:19f0:6001:3de9:5400:03ff:febe:3f8e"}
+                          "2001:19f0:6001:3de9:5400:03ff:febe:3f8e", "2a03:94e0:ffff:185:243:217:0:26",
+                          "2a0d:5600:30:46::2", "2a00:1a28:1157:3ef::2"}
 end
 
 local max_delta_owd = 15 -- increase from baseline RTT for detection of bufferbloat
@@ -206,7 +209,7 @@ local function get_table_len(tbl)
 end
 
 local function receive_icmp_pkt(pkt_id)
-    if debug then
+    if enable_debug_output then
         logger(loglevel.DEBUG, "Entered receive_icmp_pkt() with value: " .. pkt_id)
     end
 
@@ -235,7 +238,7 @@ local function receive_icmp_pkt(pkt_id)
                     downlink_time = time_after_midnight_ms - ts_resp[8]
                 }
 
-                if debug then
+                if enable_debug_output then
                     logger(loglevel.DEBUG,
                         "Reflector IP: " .. stats.reflector .. "  |  Current time: " .. time_after_midnight_ms ..
                             "  |  TX at: " .. stats.original_ts .. "  |  RTT: " .. stats.rtt .. "  |  UL time: " ..
@@ -246,7 +249,7 @@ local function receive_icmp_pkt(pkt_id)
                 coroutine.yield(stats)
             end
         else
-            if debug then
+            if enable_debug_output then
                 logger(loglevel.DEBUG, "Exiting receive_icmp_pkt() with nil return")
             end
 
@@ -256,7 +259,7 @@ local function receive_icmp_pkt(pkt_id)
 end
 
 local function receive_udp_pkt(pkt_id)
-    if debug then
+    if enable_debug_output then
         logger(loglevel.DEBUG, "Entered receive_udp_pkt() with value: " .. pkt_id)
     end
 
@@ -287,7 +290,7 @@ local function receive_udp_pkt(pkt_id)
                     downlink_time = time_after_midnight_ms - transmit_ts
                 }
 
-                if debug then
+                if enable_debug_output then
                     logger(loglevel.DEBUG,
                         "Reflector IP: " .. stats.reflector .. "  |  Current time: " .. time_after_midnight_ms ..
                             "  |  TX at: " .. stats.original_ts .. "  |  RTT: " .. stats.rtt .. "  |  UL time: " ..
@@ -298,7 +301,7 @@ local function receive_udp_pkt(pkt_id)
                 coroutine.yield(stats)
             end
         else
-            if debug then
+            if enable_debug_output then
                 logger(loglevel.DEBUG, "Exiting receive_udp_pkt() with nil return")
             end
 
@@ -308,7 +311,7 @@ local function receive_udp_pkt(pkt_id)
 end
 
 local function receive_ts_ping(pkt_id, pkt_type)
-    if debug then
+    if enable_debug_output then
         logger(loglevel.DEBUG, "Entered receive_ts_ping() with value: " .. pkt_id)
     end
 
@@ -332,7 +335,7 @@ local function send_icmp_pkt(reflector, pkt_id)
     -- Received timestamp - 4 bytes
     -- Transmit timestamp - 4 bytes
 
-    if debug then
+    if enable_debug_output then
         logger(loglevel.DEBUG, "Entered send_icmp_pkt() with values: " .. reflector .. " | " .. pkt_id)
     end
 
@@ -349,7 +352,7 @@ local function send_icmp_pkt(reflector, pkt_id)
         port = 0
     })
 
-    if debug then
+    if enable_debug_output then
         logger(loglevel.DEBUG, "Exiting send_icmp_pkt()")
     end
 
@@ -370,7 +373,7 @@ local function send_udp_pkt(reflector, pkt_id)
     -- Transmit timestamp - 4 bytes
     -- Transmit timestamp (nanoseconds) - 4 bytes
 
-    if debug then
+    if enable_debug_output then
         logger(loglevel.DEBUG, "Entered send_udp_pkt() with values: " .. reflector .. " | " .. pkt_id)
     end
 
@@ -387,7 +390,7 @@ local function send_udp_pkt(reflector, pkt_id)
         port = 62222
     })
 
-    if debug then
+    if enable_debug_output then
         logger(loglevel.DEBUG, "Exiting send_udp_pkt()")
     end
 
@@ -395,7 +398,7 @@ local function send_udp_pkt(reflector, pkt_id)
 end
 
 local function send_ts_ping(reflector, pkt_type, pkt_id)
-    if debug then
+    if enable_debug_output then
         logger(loglevel.DEBUG,
             "Entered send_ts_ping() with values: " .. reflector .. " | " .. pkt_type .. " | " .. pkt_id)
     end
@@ -409,13 +412,21 @@ local function send_ts_ping(reflector, pkt_type, pkt_id)
         logger(loglevel.ERROR, "Unknown packet type specified.")
     end
 
-    if debug then
+    if enable_debug_output then
         logger(loglevel.DEBUG, "Exiting send_ts_ping()")
     end
 
     return result
 end
 
+local function maximum(table)
+    local max = math.max
+    local m = -1 / 0
+    for _, v in pairs(table) do
+        m = max(v, m)
+    end
+    return m
+end
 ---------------------------- End Local Functions ----------------------------
 
 ---------------------------- Begin Conductor Loop ----------------------------
@@ -446,7 +457,9 @@ if dl_if == "" then
 
     dl_if = ifb_name
 end
-print(ul_if, dl_if)
+if enable_debug_output then
+    logger(loglevel.DEBUG, "Upload iface: " .. ul_if .. " | Download iface: " .. dl_if)
+end
 
 -- Verify these are correct using "cat /sys/class/..."
 if dl_if:find("^ifb.+") or dl_if:find("^veth.+") then
@@ -461,7 +474,7 @@ else
     tx_bytes_path = "/sys/class/net/" .. ul_if .. "/statistics/tx_bytes"
 end
 
-if debug then
+if enable_debug_output then
     logger(loglevel.DEBUG, "rx_bytes_path: " .. rx_bytes_path)
     logger(loglevel.DEBUG, "tx_bytes_path: " .. tx_bytes_path)
 end
@@ -499,7 +512,7 @@ os.execute(string.format("tc qdisc change root dev %s cake bandwidth %sKbit", ul
 
 -- Constructor Gadget...
 local function pinger(freq)
-    if debug then
+    if enable_debug_output then
         logger(loglevel.DEBUG, "Entered pinger()")
     end
     local lastsend_s, lastsend_ns = get_current_time()
@@ -513,7 +526,7 @@ local function pinger(freq)
 
             local result = send_ts_ping(reflector, reflector_type, packet_id)
 
-            if debug then
+            if enable_debug_output then
                 logger(loglevel.DEBUG, "Result from send_ts_ping(): " .. result)
             end
 
@@ -576,7 +589,7 @@ local function ratecontrol(baseline, recent)
                 min_up_del = min(min_up_del, recent[k].up_ewma - val.up_ewma)
                 min_down_del = min(min_down_del, recent[k].down_ewma - val.down_ewma)
 
-                if debug then
+                if enable_debug_output then
                     logger(loglevel.INFO, "min_up_del: " .. min_up_del .. "  min_down_del: " .. min_down_del)
                 end
             end
@@ -595,13 +608,15 @@ local function ratecontrol(baseline, recent)
 
             if min_up_del < max_delta_owd and tx_load > .8 then
                 safe_ul_rates[nrate_up] = floor(cur_ul_rate * tx_load)
-                next_ul_rate = cur_ul_rate * 1.1
+                local maxul = maximum(safe_ul_rates)
+                next_ul_rate = cur_ul_rate * (1 + .1 * max(0, (1 - cur_ul_rate / maxul))) + 500
                 nrate_up = nrate_up + 1
                 nrate_up = nrate_up % histsize
             end
             if min_down_del < max_delta_owd and rx_load > .8 then
                 safe_dl_rates[nrate_down] = floor(cur_dl_rate * rx_load)
-                next_dl_rate = cur_dl_rate * 1.1
+                local maxdl = maximum(safe_dl_rates)
+                next_dl_rate = cur_dl_rate * (1 + .1 * max(0, (1 - cur_dl_rate / maxdl))) + 500
                 nrate_down = nrate_down + 1
                 nrate_down = nrate_down % histsize
             end
@@ -664,7 +679,7 @@ end
 
 -- Start this whole thing in motion!
 local function conductor()
-    if debug then
+    if enable_debug_output then
         logger(loglevel.DEBUG, "Entered conductor()")
     end
 
@@ -679,11 +694,32 @@ local function conductor()
 
     while true do
         local ok, refl, worked = coroutine.resume(pings, tick_duration / (#reflector_array_v4))
+        if not ok then
+            local coroutine_retry_threshold = 5
+            for i = 1, coroutine_retry_threshold, 1 do
+                ok, refl, worked = coroutine.resume(pings, tick_duration / (#reflector_array_v4))
+            end
+            if not ok then
+                print(debug.traceback(pings))
+                os.exit(1, true)
+            end
+        end
+
         local sleep_time_ns = 500000.0
         local sleep_time_s = 0.0
 
         local time_data = nil
         ok, time_data = coroutine.resume(receiver, packet_id, reflector_type)
+        if not ok then
+            local coroutine_retry_threshold = 5
+            for i = 1, coroutine_retry_threshold, 1 do
+                ok, time_data = coroutine.resume(receiver, packet_id, reflector_type)
+            end
+            if not ok then
+                print(debug.traceback(receiver))
+                os.exit(1, true)
+            end
+        end
 
         if ok and time_data then
             if not owd_baseline[time_data.reflector] then
@@ -721,7 +757,17 @@ local function conductor()
             owd_baseline[time_data.reflector].down_ewma = math.min(owd_baseline[time_data.reflector].down_ewma,
                 owd_recent[time_data.reflector].down_ewma)
 
-            coroutine.resume(regulator, owd_baseline, owd_recent)
+            local ok = coroutine.resume(regulator, owd_baseline, owd_recent)
+            if not ok then
+                local coroutine_retry_threshold = 5
+                for i = 1, coroutine_retry_threshold, 1 do
+                    ok = coroutine.resume(regulator, owd_baseline, owd_recent)
+                end
+                if not ok then
+                    print(debug.traceback(regulator))
+                    os.exit(1, true)
+                end
+            end
 
             if enable_verbose_baseline_output then
                 for ref, val in pairs(owd_baseline) do
