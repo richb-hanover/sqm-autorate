@@ -62,8 +62,9 @@ if settings then
 end
 
 ---------------------------- Begin Local Variables - External Settings ----------------------------
-local base_ul_rate = settings and tonumber(settings:get("sqm", "@queue[0]", "upload"), 10) or "<STEADY STATE UPLOAD>" -- steady state bandwidth for upload
-local base_dl_rate = settings and tonumber(settings:get("sqm", "@queue[0]", "download"), 10) or
+local base_ul_rate = settings and tonumber(settings:get("sqm-autorate", "@network[0]", "transmit_kbits_base"), 10) or
+                         "<STEADY STATE UPLOAD>" -- steady state bandwidth for upload
+local base_dl_rate = settings and tonumber(settings:get("sqm-autorate", "@network[0]", "receive_kbits_base"), 10) or
                          "<STEADY STATE DOWNLOAD>" -- steady state bandwidth for download
 
 local min_ul_rate = settings and tonumber(settings:get("sqm-autorate", "@network[0]", "transmit_kbits_min"), 10) or
@@ -90,8 +91,10 @@ local tick_duration = 0.5 -- Frequency in seconds
 local min_change_interval = 0.5 -- don't change speeds unless this many seconds has passed since last change
 
 -- Interface names: leave empty to use values from SQM config or place values here to override SQM config
-local ul_if = "" -- upload interface
-local dl_if = "" -- download interface
+local ul_if = settings and settings:get("sqm-autorate", "@network[0]", "transmit_interface") or
+                  "<UPLOAD INTERFACE NAME>" -- upload interface
+local dl_if = settings and settings:get("sqm-autorate", "@network[0]", "receive_interface") or
+                  "<DOWNLOAD INTERFACE NAME>" -- download interface
 
 local reflector_type = settings and settings:get("sqm-autorate", "@network[0]", "reflector_type") or nil
 local reflector_array_v4 = {}
@@ -221,32 +224,48 @@ local function receive_icmp_pkt(pkt_id)
             local ip_start = string.byte(data, 1)
             local ip_ver = bit.rshift(ip_start, 4)
             local hdr_len = (ip_start - ip_ver * 16) * 4
-            local ts_resp = vstruct.read("> 2*u1 3*u2 3*u4", string.sub(data, hdr_len + 1, #data))
-            local time_after_midnight_ms = get_time_after_midnight_ms()
-            local src_pkt_id = ts_resp[4]
-            local pos = get_table_position(reflector_array_v4, sa.addr)
-
-            -- A pos > 0 indicates the current sa.addr is a known member of the reflector array
-            if (pos > 0 and src_pkt_id == pkt_id) then
-                local stats = {
-                    reflector = sa.addr,
-                    original_ts = ts_resp[6],
-                    receive_ts = ts_resp[7],
-                    transmit_ts = ts_resp[8],
-                    rtt = time_after_midnight_ms - ts_resp[6],
-                    uplink_time = ts_resp[7] - ts_resp[6],
-                    downlink_time = time_after_midnight_ms - ts_resp[8]
-                }
-
-                if enable_debug_output then
-                    logger(loglevel.DEBUG,
-                        "Reflector IP: " .. stats.reflector .. "  |  Current time: " .. time_after_midnight_ms ..
-                            "  |  TX at: " .. stats.original_ts .. "  |  RTT: " .. stats.rtt .. "  |  UL time: " ..
-                            stats.uplink_time .. "  |  DL time: " .. stats.downlink_time)
-                    logger(loglevel.DEBUG, "Exiting receive_icmp_pkt() with stats return")
+            
+            if (#data - hdr_len == 20) then
+                if (string.byte(data, hdr_len + 1) == 14) then
+                    local ts_resp = vstruct.read("> 2*u1 3*u2 3*u4", string.sub(data, hdr_len + 1, #data))
+                    local time_after_midnight_ms = get_time_after_midnight_ms()
+                    local src_pkt_id = ts_resp[4]
+                    local pos = get_table_position(reflector_array_v4, sa.addr)
+        
+                    -- A pos > 0 indicates the current sa.addr is a known member of the reflector array
+                    if (pos > 0 and src_pkt_id == pkt_id) then
+                        local stats = {
+                            reflector = sa.addr,
+                            original_ts = ts_resp[6],
+                            receive_ts = ts_resp[7],
+                            transmit_ts = ts_resp[8],
+                            rtt = time_after_midnight_ms - ts_resp[6],
+                            uplink_time = ts_resp[7] - ts_resp[6],
+                            downlink_time = time_after_midnight_ms - ts_resp[8]
+                        }
+        
+                        if enable_debug_output then
+                            logger(loglevel.DEBUG,
+                                "Reflector IP: " .. stats.reflector .. "  |  Current time: " .. time_after_midnight_ms ..
+                                    "  |  TX at: " .. stats.original_ts .. "  |  RTT: " .. stats.rtt .. "  |  UL time: " ..
+                                    stats.uplink_time .. "  |  DL time: " .. stats.downlink_time)
+                            logger(loglevel.DEBUG, "Exiting receive_icmp_pkt() with stats return")
+                        end
+        
+                        coroutine.yield(stats)
+                    end
+                else
+                    if enable_debug_output then
+                        logger(loglevel.DEBUG, "Exiting receive_icmp_pkt() with nil return due to wrong type")
+                    end
+                    coroutine.yield(nil)
+                    
                 end
-
-                coroutine.yield(stats)
+            else
+                if enable_debug_output then
+                    logger(loglevel.DEBUG, "Exiting receive_icmp_pkt() with nil return due to wrong length")
+                end
+                coroutine.yield(nil)
             end
         else
             if enable_debug_output then
@@ -432,31 +451,31 @@ end
 ---------------------------- Begin Conductor Loop ----------------------------
 
 -- Figure out the interfaces in play here
-if ul_if == "" then
-    ul_if = settings and settings:get("sqm", "@queue[0]", "interface")
-    if not ul_if then
-        logger(loglevel.FATAL, "Upload interface not found in SQM config and was not overriden. Cannot continue.")
-        os.exit(1, true)
-    end
-end
+-- if ul_if == "" then
+--     ul_if = settings and settings:get("sqm", "@queue[0]", "interface")
+--     if not ul_if then
+--         logger(loglevel.FATAL, "Upload interface not found in SQM config and was not overriden. Cannot continue.")
+--         os.exit(1, true)
+--     end
+-- end
 
-if dl_if == "" then
-    local fh = io.popen(string.format("tc -p filter show parent ffff: dev %s", ul_if))
-    local tc_filter = fh:read("*a")
-    fh:close()
+-- if dl_if == "" then
+--     local fh = io.popen(string.format("tc -p filter show parent ffff: dev %s", ul_if))
+--     local tc_filter = fh:read("*a")
+--     fh:close()
 
-    local ifb_name = string.match(tc_filter, "ifb[%a%d]+")
-    if not ifb_name then
-        local ifb_name = string.match(tc_filter, "veth[%a%d]+")
-    end
-    if not ifb_name then
-        logger(loglevel.FATAL, string.format(
-            "Download interface not found for upload interface %s and was not overriden. Cannot continue.", ul_if))
-        os.exit(1, true)
-    end
+--     local ifb_name = string.match(tc_filter, "ifb[%a%d]+")
+--     if not ifb_name then
+--         local ifb_name = string.match(tc_filter, "veth[%a%d]+")
+--     end
+--     if not ifb_name then
+--         logger(loglevel.FATAL, string.format(
+--             "Download interface not found for upload interface %s and was not overriden. Cannot continue.", ul_if))
+--         os.exit(1, true)
+--     end
 
-    dl_if = ifb_name
-end
+--     dl_if = ifb_name
+-- end
 if enable_debug_output then
     logger(loglevel.DEBUG, "Upload iface: " .. ul_if .. " | Download iface: " .. dl_if)
 end
@@ -567,8 +586,8 @@ local function ratecontrol(baseline, recent)
     local safe_dl_rates = {}
     local safe_ul_rates = {}
     for i = 0, histsize - 1, 1 do
-        safe_dl_rates[i] = (math.random() + math.random() + math.random() + math.random() + 1) / 5 * (base_dl_rate)
-        safe_ul_rates[i] = (math.random() + math.random() + math.random() + math.random() + 1) / 5 * (base_ul_rate)
+        safe_dl_rates[i] = (math.random() * 0.2 + 0.75) * (base_dl_rate)
+        safe_ul_rates[i] = (math.random() * 0.2 + 0.75) * (base_ul_rate)
     end
 
     local nrate_up = 0
