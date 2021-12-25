@@ -465,9 +465,29 @@ local function conductor()
 
     while true do
         local ok, refl, worked = coroutine.resume(pings, tick_duration / (#reflector_array_v4))
-        local time_data = nil
+        if not ok then
+            local coroutine_retry_threshold = 5
+            for i = 1, coroutine_retry_threshold, 1 do
+                ok, refl, worked = coroutine.resume(pings, tick_duration / (#reflector_array_v4))
+            end
+            if not ok then
+                print(debug.traceback(pings))
+                os.exit(1, true)
+            end
+        end
 
+        local time_data = nil
         ok, time_data = coroutine.resume(receiver, packet_id)
+        if not ok then
+            local coroutine_retry_threshold = 5
+            for i = 1, coroutine_retry_threshold, 1 do
+                ok, time_data = coroutine.resume(receiver, packet_id)
+            end
+            if not ok then
+                print(debug.traceback(receiver))
+                os.exit(1, true)
+            end
+        end
 
         if ok and time_data then
             if not baseline_cur[time_data.reflector] then
@@ -516,7 +536,17 @@ local function conductor()
             baseline_prev[time_data.reflector].uplink = cur_uplink_baseline
             baseline_prev[time_data.reflector].downlink = cur_downlink_baseline
 
-            coroutine.resume(regulator, baseline_cur)
+            ok = coroutine.resume(regulator, baseline_cur)
+            if not ok then
+                local coroutine_retry_threshold = 5
+                for i = 1, coroutine_retry_threshold, 1 do
+                    ok = coroutine.resume(regulator, baseline_cur)
+                end
+                if not ok then
+                    print(debug.traceback(regulator))
+                    os.exit(1, true)
+                end
+            end
 
             if enable_lynx_graph_output then
                 for ref, val in pairs(baseline_cur) do
