@@ -1,4 +1,9 @@
 local pinger = {}
+if setfenv then
+    setfenv(1, pinger) -- for 5.1
+else
+    _ENV = pinger -- for 5.2
+end
 
 local math = require "math"
 local tunables = require "./tunables"

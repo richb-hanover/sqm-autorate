@@ -1,4 +1,9 @@
 local receiver = {}
+if setfenv then
+    setfenv(1, receiver) -- for 5.1
+else
+    _ENV = receiver -- for 5.2
+end
 
 local math = require "math"
 local tunables = require "./tunables"
