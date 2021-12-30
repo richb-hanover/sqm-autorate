@@ -101,4 +101,22 @@ function utility.nsleep(s, ns)
     })
 end
 
+function utility.get_current_time()
+    local time_s, time_ns = 0, 0
+    local val1, val2 = time.clock_gettime(time.CLOCK_REALTIME)
+    if type(val1) == "table" then
+        time_s = val1.tv_sec
+        time_ns = val1.tv_nsec
+    else
+        time_s = val1
+        time_ns = val2
+    end
+    return time_s, time_ns
+end
+
+function utility.get_time_after_midnight_ms()
+    local time_s, time_ns = utility.get_current_time()
+    return (time_s % 86400 * 1000) + (math.floor(time_ns / 1000000))
+end
+
 return utility

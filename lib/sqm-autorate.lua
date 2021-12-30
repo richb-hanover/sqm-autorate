@@ -120,24 +120,6 @@ socket.setsockopt(sock, socket.SOL_SOCKET, socket.SO_SNDTIMEO, 0, 500)
 
 ---------------------------- Begin Local Functions ----------------------------
 
-local function get_current_time()
-    local time_s, time_ns = 0, 0
-    local val1, val2 = time.clock_gettime(time.CLOCK_REALTIME)
-    if type(val1) == "table" then
-        time_s = val1.tv_sec
-        time_ns = val1.tv_nsec
-    else
-        time_s = val1
-        time_ns = val2
-    end
-    return time_s, time_ns
-end
-
-local function get_time_after_midnight_ms()
-    local time_s, time_ns = get_current_time()
-    return (time_s % 86400 * 1000) + (math.floor(time_ns / 1000000))
-end
-
 local function dec_to_hex(number, digits)
     local bit_mask = (bit.lshift(1, (digits * 4))) - 1
     local str_fmt = "%0" .. digits .. "X"
@@ -204,7 +186,7 @@ local function receive_icmp_pkt(pkt_id)
         if (#data - hdr_len == 20) then
             if (string.byte(data, hdr_len + 1) == 14) then
                 local ts_resp = vstruct.read("> 2*u1 3*u2 3*u4", string.sub(data, hdr_len + 1, #data))
-                local time_after_midnight_ms = get_time_after_midnight_ms()
+                local time_after_midnight_ms = utility.get_time_after_midnight_ms()
                 local src_pkt_id = ts_resp[4]
                 local pos = get_table_position(reflector_array_v4, sa.addr)
 
@@ -253,7 +235,7 @@ local function receive_udp_pkt(pkt_id)
     if data then
         local ts_resp = vstruct.read("> 2*u1 3*u2 6*u4", data)
 
-        local time_after_midnight_ms = get_time_after_midnight_ms()
+        local time_after_midnight_ms = utility.get_time_after_midnight_ms()
         local src_pkt_id = ts_resp[4]
         local pos = get_table_position(reflector_array_v4, sa.addr)
 
@@ -323,7 +305,7 @@ local function send_icmp_pkt(reflector, pkt_id)
     utility.logger(utility.loglevel.TRACE, "Entered send_icmp_pkt() with values: " .. reflector .. " | " .. pkt_id)
 
     -- Create a raw ICMP timestamp request message
-    local time_after_midnight_ms = get_time_after_midnight_ms()
+    local time_after_midnight_ms = utility.get_time_after_midnight_ms()
     local ts_req = vstruct.write("> 2*u1 3*u2 3*u4", {13, 0, 0, pkt_id, 0, time_after_midnight_ms, 0, 0})
     local ts_req = vstruct.write("> 2*u1 3*u2 3*u4",
         {13, 0, calculate_checksum(ts_req), pkt_id, 0, time_after_midnight_ms, 0, 0})
@@ -357,7 +339,7 @@ local function send_udp_pkt(reflector, pkt_id)
     utility.logger(utility.loglevel.TRACE, "Entered send_udp_pkt() with values: " .. reflector .. " | " .. pkt_id)
 
     -- Create a raw ICMP timestamp request message
-    local time, time_ns = get_current_time()
+    local time, time_ns = utility.get_current_time()
     local ts_req = vstruct.write("> 2*u1 3*u2 6*u4", {13, 0, 0, pkt_id, 0, time, time_ns, 0, 0, 0, 0})
     local ts_req = vstruct.write("> 2*u1 3*u2 6*u4",
         {13, 0, calculate_checksum(ts_req), pkt_id, 0, time, time_ns, 0, 0, 0, 0})
@@ -411,8 +393,8 @@ local function ratecontrol()
     local sleep_time_ns = math.floor((min_change_interval % 1) * 1e9)
     local sleep_time_s = math.floor(min_change_interval)
 
-    local start_s, start_ns = get_current_time() -- first time we entered this loop, times will be relative to this seconds value to preserve precision
-    local lastchg_s, lastchg_ns = get_current_time()
+    local start_s, start_ns = utility.get_current_time() -- first time we entered this loop, times will be relative to this seconds value to preserve precision
+    local lastchg_s, lastchg_ns = utility.get_current_time()
     local lastchg_t = lastchg_s - start_s + lastchg_ns / 1e9
     local lastdump_t = lastchg_t - 310
 
@@ -450,7 +432,7 @@ local function ratecontrol()
     speeddump_fd:write("time,counter,upspeed,downspeed\n")
 
     while true do
-        local now_s, now_ns = get_current_time()
+        local now_s, now_ns = utility.get_current_time()
         now_s = now_s - start_s
         local now_t = now_s + now_ns / 1e9
         if now_t - lastchg_t > min_change_interval then
@@ -530,7 +512,7 @@ local function ratecontrol()
                 string.format("%d,%d,%f,%f,%f,%f,%d,%d\n", lastchg_s, lastchg_ns, rx_load, tx_load, min_down_del,
                     min_up_del, cur_dl_rate, cur_ul_rate))
 
-            lastchg_s, lastchg_ns = get_current_time()
+            lastchg_s, lastchg_ns = utility.get_current_time()
 
             -- output to log file before doing delta on the time
             csv_fd:write(string.format("%d,%d,%f,%f,%f,%f,%d,%d\n", lastchg_s, lastchg_ns, rx_load, tx_load,
@@ -685,7 +667,7 @@ local function conductor()
     test_file:close()
 
     -- Random seed
-    local nows, nowns = get_current_time()
+    local nows, nowns = utility.get_current_time()
     math.randomseed(nowns)
 
     -- Set a packet ID
