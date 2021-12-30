@@ -47,16 +47,6 @@ local _VERSION = "0.0.1b2"
 -- Set a default log level here, until we've got one from UCI
 local use_loglevel = utility.loglevel.INFO
 
-local bit = nil
-if utility.is_module_available("bit") then
-    bit = lanes.require "bit"
-elseif utility.is_module_available("bit32") then
-    bit = lanes.require "bit32"
-else
-    utility.logger(utility.loglevel.FATAL, "No bitwise module found")
-    os.exit(1, true)
-end
-
 ---------------------------- Begin Variables - External Settings ----------------------------
 local base_ul_rate = utility.get_config_setting_as_num("sqm-autorate", "network[0]", "transmit_kbits_base") or
                          tunables.base_ul_rate
@@ -116,6 +106,12 @@ else
 end
 
 socket.setsockopt(sock, socket.SOL_SOCKET, socket.SO_SNDTIMEO, 0, 500)
+
+local bit = utility.bit
+if not bit then
+    utility.logger(utility.loglevel.FATAL, "No bitwise module found")
+    os.exit(1, true)
+end
 
 ---------------------------- End Local Variables ----------------------------
 

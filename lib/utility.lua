@@ -3,6 +3,8 @@ local utility = {}
 local math = require "math"
 local time = require "posix.time"
 
+utility.bit = nil
+
 utility.loglevel = {
     TRACE = {
         level = 6,
@@ -29,6 +31,18 @@ utility.loglevel = {
         name = "FATAL"
     }
 }
+
+utility.use_loglevel = utility.loglevel[string.upper(
+    utility.get_config_setting("sqm-autorate", "output[0]", "log_level") or "INFO")]
+
+-- Basic homegrown logger to keep us from having to import yet another module
+function utility.logger(loglevel, message)
+    if (loglevel.level <= utility.use_loglevel.level) then
+        local cur_date = os.date("%Y%m%dT%H:%M:%S")
+        local out_str = string.format("[%s - %s]: %s", loglevel.name, cur_date, message)
+        print(out_str)
+    end
+end
 
 -- Found this clever function here: https://stackoverflow.com/a/15434737
 -- This function will assist in compatibility given differences between OpenWrt, Turris OS, etc.
@@ -73,18 +87,6 @@ function utility.get_config_setting_as_num(config_file_name, config_section, set
     return nil
 end
 
-utility.use_loglevel = utility.loglevel[string.upper(
-    utility.get_config_setting("sqm-autorate", "output[0]", "log_level") or "INFO")]
-
--- Basic homegrown logger to keep us from having to import yet another module
-function utility.logger(loglevel, message)
-    if (loglevel.level <= utility.use_loglevel.level) then
-        local cur_date = os.date("%Y%m%dT%H:%M:%S")
-        local out_str = string.format("[%s - %s]: %s", loglevel.name, cur_date, message)
-        print(out_str)
-    end
-end
-
 function utility.a_else_b(a, b)
     if a then
         return a
@@ -117,6 +119,12 @@ end
 function utility.get_time_after_midnight_ms()
     local time_s, time_ns = utility.get_current_time()
     return (time_s % 86400 * 1000) + (math.floor(time_ns / 1000000))
+end
+
+if utility.is_module_available("bit") then
+    utility.bit = require "bit"
+elseif utility.is_module_available("bit32") then
+    utility.bit = require "bit32"
 end
 
 function utility.calculate_checksum(data)
