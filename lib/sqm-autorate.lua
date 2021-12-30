@@ -129,7 +129,7 @@ local function conductor()
 
     -- Set initial TC values
     rate_controller.set_initial_cake_bandwidth()
-
+    print(sock, stats_queue, packet_id)
     local threads = {
         pinger_thread = lanes.gen("*", {
             required = {"bit32", "posix.sys.socket", "posix.time", "vstruct"}
