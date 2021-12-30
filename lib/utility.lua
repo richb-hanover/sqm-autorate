@@ -5,10 +5,6 @@ local time = require "posix.time"
 
 local bit = nil
 
--- Random seed
-local nows, nowns = utility.get_current_time()
-math.randomseed(nowns)
-
 utility.loglevel = {
     TRACE = {
         level = 6,
@@ -52,6 +48,23 @@ function utility.is_module_available(name)
         return false
     end
 end
+
+function utility.get_current_time()
+    local time_s, time_ns = 0, 0
+    local val1, val2 = time.clock_gettime(time.CLOCK_REALTIME)
+    if type(val1) == "table" then
+        time_s = val1.tv_sec
+        time_ns = val1.tv_nsec
+    else
+        time_s = val1
+        time_ns = val2
+    end
+    return time_s, time_ns
+end
+
+-- Random seed
+local nows, nowns = utility.get_current_time()
+math.randomseed(nowns)
 
 function utility.get_config_setting(config_file_name, config_section, setting_name)
     config_file_name = config_file_name or "sqm-autorate" -- Default to sqm-autorate if not provided
@@ -105,19 +118,6 @@ function utility.nsleep(s, ns)
         tv_sec = math.floor(s),
         tv_nsec = math.floor(((s % 1.0) * 1e9) + ns)
     })
-end
-
-function utility.get_current_time()
-    local time_s, time_ns = 0, 0
-    local val1, val2 = time.clock_gettime(time.CLOCK_REALTIME)
-    if type(val1) == "table" then
-        time_s = val1.tv_sec
-        time_ns = val1.tv_nsec
-    else
-        time_s = val1
-        time_ns = val2
-    end
-    return time_s, time_ns
 end
 
 function utility.get_time_after_midnight_ms()
