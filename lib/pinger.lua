@@ -18,8 +18,8 @@ local tick_duration = tunables.tick_duration
 
 local reflector_type = utility.get_config_setting("sqm-autorate", "network[0]", "reflector_type") or
                            tunables.reflector_type
-
 local reflector_array_v4 = tunables.reflector_array_v4
+local reflector_array_v6 = tunables.reflector_array_v6
 
 function pinger.send_icmp_pkt(sock, reflector, pkt_id)
     -- ICMP timestamp header
@@ -90,14 +90,14 @@ function pinger.ts_ping_sender(sock, pkt_id)
     print(tick_duration, reflector_type)
     utility.logger(utility.loglevel.TRACE, "Entered ts_ping_sender() with values: " .. tick_duration .. " | " ..
         reflector_type .. " | " .. pkt_id)
-    local ff = (pinger.tick_duration / #reflector_array_v4)
+    local ff = (tick_duration / #reflector_array_v4)
     local sleep_time_ns = math.floor((ff % 1) * 1e9)
     local sleep_time_s = math.floor(ff)
     local ping_func = nil
 
-    if pinger.reflector_type == "icmp" then
+    if reflector_type == "icmp" then
         ping_func = pinger.send_icmp_pkt
-    elseif pinger.reflector_type == "udp" then
+    elseif reflector_type == "udp" then
         ping_func = pinger.send_udp_pkt
     else
         utility.logger(utility.loglevel.ERROR, "Unknown packet type specified.")

@@ -16,6 +16,8 @@ local udp_port = 62222
 
 local reflector_type = utility.get_config_setting("sqm-autorate", "network[0]", "reflector_type") or
                            tunables.reflector_type
+local reflector_array_v4 = tunables.reflector_array_v4
+local reflector_array_v6 = tunables.reflector_array_v6
 
 local bit
 if utility.is_module_available("bit") then
@@ -40,7 +42,7 @@ local function receive_icmp_pkt(sock, pkt_id)
                 local ts_resp = vstruct.read("> 2*u1 3*u2 3*u4", string.sub(data, hdr_len + 1, #data))
                 local time_after_midnight_ms = utility.get_time_after_midnight_ms()
                 local src_pkt_id = ts_resp[4]
-                local pos = utility.get_table_position(tunables.reflector_array_v4, sa.addr)
+                local pos = utility.get_table_position(reflector_array_v4, sa.addr)
 
                 -- A pos > 0 indicates the current sa.addr is a known member of the reflector array
                 if (pos > 0 and src_pkt_id == pkt_id) then
@@ -89,7 +91,7 @@ local function receive_udp_pkt(sock, pkt_id)
 
         local time_after_midnight_ms = utility.get_time_after_midnight_ms()
         local src_pkt_id = ts_resp[4]
-        local pos = utility.get_table_position(tunables.reflector_array_v4, sa.addr)
+        local pos = utility.get_table_position(reflector_array_v4, sa.addr)
 
         -- A pos > 0 indicates the current sa.addr is a known member of the reflector array
         if (pos > 0 and src_pkt_id == pkt_id) then
@@ -126,9 +128,9 @@ local function ts_ping_receiver(sock, statistics_queue, pkt_id)
     utility.logger(utility.loglevel.TRACE, "Entered ts_ping_receiver() with value: " .. pkt_id)
 
     local receive_func = nil
-    if receiver.reflector_type == "icmp" then
+    if reflector_type == "icmp" then
         receive_func = receiver.receive_icmp_pkt
-    elseif receiver.reflector_type == "udp" then
+    elseif reflector_type == "udp" then
         receive_func = receiver.receive_udp_pkt
     else
         utility.logger(utility.loglevel.ERROR, "Unknown packet type specified.")
