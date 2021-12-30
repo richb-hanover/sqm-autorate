@@ -25,7 +25,7 @@ end
 local nows, nowns = utility.get_current_time()
 math.randomseed(nowns)
 
-local function receive_icmp_pkt(sock, pkt_id)
+function receiver.receive_icmp_pkt(sock, pkt_id)
     utility.logger(utility.loglevel.TRACE, "Entered receive_icmp_pkt() with value: " .. pkt_id)
 
     -- Read ICMP TS reply
@@ -79,7 +79,7 @@ local function receive_icmp_pkt(sock, pkt_id)
     end
 end
 
-local function receive_udp_pkt(sock, pkt_id)
+function receiver.receive_udp_pkt(sock, pkt_id)
     utility.logger(utility.loglevel.TRACE, "Entered receive_udp_pkt() with value: " .. pkt_id)
 
     -- Read UDP TS reply
@@ -123,7 +123,7 @@ local function receive_udp_pkt(sock, pkt_id)
     end
 end
 
-local function ts_ping_receiver(sock, statistics_queue, pkt_id)
+function receiver.ts_ping_receiver(sock, statistics_queue, pkt_id)
     print(sock, statistics_queue, pkt_id)
     utility.logger(utility.loglevel.TRACE, "Entered ts_ping_receiver() with value: " .. pkt_id)
 
