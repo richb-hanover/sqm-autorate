@@ -1,9 +1,4 @@
 local pinger = {}
--- if setfenv then
---     setfenv(1, pinger) -- for 5.1
--- else
---     _ENV = pinger -- for 5.2
--- end
 
 local math = require "math"
 local tunables = require "./tunables"
@@ -20,6 +15,10 @@ local reflector_type = utility.get_config_setting("sqm-autorate", "network[0]", 
                            tunables.reflector_type
 local reflector_array_v4 = tunables.reflector_array_v4
 local reflector_array_v6 = tunables.reflector_array_v6
+
+-- Random seed
+local nows, nowns = utility.get_current_time()
+math.randomseed(nowns)
 
 function pinger.send_icmp_pkt(sock, reflector, pkt_id)
     -- ICMP timestamp header

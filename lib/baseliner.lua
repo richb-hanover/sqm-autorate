@@ -3,6 +3,10 @@ local baseliner = {}
 local math = require "math"
 local utility = require "./utility"
 
+-- Random seed
+local nows, nowns = utility.get_current_time()
+math.randomseed(nowns)
+
 function baseliner.baseline_calculator(statistics_queue, owd_data_struct, verbose_baseline_output)
     local slow_factor = .9
     local fast_factor = .2

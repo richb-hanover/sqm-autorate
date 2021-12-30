@@ -27,6 +27,34 @@ local speedhist_file = utility.get_config_setting("sqm-autorate", "output[0]", "
 local histsize = utility.get_config_setting_as_num("sqm-autorate", "output[0]", "hist_size") or tunables.histsize
 
 function ratecontroller.setup_bytes_paths()
+    -- Figure out the interfaces in play here
+    -- if ul_if == "" then
+    --     ul_if = settings and settings:get("sqm", "@queue[0]", "interface")
+    --     if not ul_if then
+    --         utility.logger(utility.loglevel.FATAL, "Upload interface not found in SQM config and was not overriden. Cannot continue.")
+    --         os.exit(1, true)
+    --     end
+    -- end
+
+    -- if dl_if == "" then
+    --     local fh = io.popen(string.format("tc -p filter show parent ffff: dev %s", ul_if))
+    --     local tc_filter = fh:read("*a")
+    --     fh:close()
+
+    --     local ifb_name = string.match(tc_filter, "ifb[%a%d]+")
+    --     if not ifb_name then
+    --         local ifb_name = string.match(tc_filter, "veth[%a%d]+")
+    --     end
+    --     if not ifb_name then
+    --         utility.logger(utility.loglevel.FATAL, string.format(
+    --             "Download interface not found for upload interface %s and was not overriden. Cannot continue.", ul_if))
+    --         os.exit(1, true)
+    --     end
+
+    --     dl_if = ifb_name
+    -- end
+    -- utility.logger(utility.loglevel.DEBUG, "Upload iface: " .. ul_if .. " | Download iface: " .. dl_if)
+
     -- Verify these are correct using "cat /sys/class/..."
     if dl_if:find("^ifb.+") or dl_if:find("^veth.+") then
         rx_bytes_path = "/sys/class/net/" .. dl_if .. "/statistics/tx_bytes"

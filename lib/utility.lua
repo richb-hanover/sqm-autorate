@@ -5,6 +5,10 @@ local time = require "posix.time"
 
 local bit = nil
 
+-- Random seed
+local nows, nowns = utility.get_current_time()
+math.randomseed(nowns)
+
 utility.loglevel = {
     TRACE = {
         level = 6,

@@ -90,34 +90,6 @@ local function conductor()
     print("Starting sqm-autorate.lua v" .. _VERSION)
     utility.logger(utility.loglevel.TRACE, "Entered conductor()")
 
-    -- Figure out the interfaces in play here
-    -- if ul_if == "" then
-    --     ul_if = settings and settings:get("sqm", "@queue[0]", "interface")
-    --     if not ul_if then
-    --         utility.logger(utility.loglevel.FATAL, "Upload interface not found in SQM config and was not overriden. Cannot continue.")
-    --         os.exit(1, true)
-    --     end
-    -- end
-
-    -- if dl_if == "" then
-    --     local fh = io.popen(string.format("tc -p filter show parent ffff: dev %s", ul_if))
-    --     local tc_filter = fh:read("*a")
-    --     fh:close()
-
-    --     local ifb_name = string.match(tc_filter, "ifb[%a%d]+")
-    --     if not ifb_name then
-    --         local ifb_name = string.match(tc_filter, "veth[%a%d]+")
-    --     end
-    --     if not ifb_name then
-    --         utility.logger(utility.loglevel.FATAL, string.format(
-    --             "Download interface not found for upload interface %s and was not overriden. Cannot continue.", ul_if))
-    --         os.exit(1, true)
-    --     end
-
-    --     dl_if = ifb_name
-    -- end
-    -- utility.logger(utility.loglevel.DEBUG, "Upload iface: " .. ul_if .. " | Download iface: " .. dl_if)
-
     rate_controller.setup_bytes_paths()
 
     -- Random seed
@@ -136,13 +108,13 @@ local function conductor()
         }, pinger.ts_ping_sender)(sock, packet_id),
         receiver_thread = lanes.gen("*", {
             required = {"bit32", "posix.sys.socket", "posix.time", "vstruct"}
-        }, receiver.ts_ping_receiver)(sock, stats_queue, packet_id),
-        baseliner_thread = lanes.gen("*", {
-            required = {"bit32", "posix", "posix.time"}
-        }, baseliner.baseline_calculator)(stats_queue, owd_data, enable_verbose_baseline_output),
-        rate_controllerer_thread = lanes.gen("*", {
-            required = {"bit32", "posix", "posix.time"}
-        }, rate_controller.ratecontrol)(owd_data)
+        }, receiver.ts_ping_receiver)(sock, stats_queue, packet_id)
+        -- baseliner_thread = lanes.gen("*", {
+        --     required = {"bit32", "posix", "posix.time"}
+        -- }, baseliner.baseline_calculator)(stats_queue, owd_data, enable_verbose_baseline_output),
+        -- rate_controllerer_thread = lanes.gen("*", {
+        --     required = {"bit32", "posix", "posix.time"}
+        -- }, rate_controller.ratecontrol)(owd_data)
     }
     local join_timeout = 0.5
 

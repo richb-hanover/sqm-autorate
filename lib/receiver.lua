@@ -1,9 +1,4 @@
 local receiver = {}
--- if setfenv then
---     setfenv(1, receiver) -- for 5.1
--- else
---     _ENV = receiver -- for 5.2
--- end
 
 local math = require "math"
 local tunables = require "./tunables"
@@ -25,6 +20,10 @@ if utility.is_module_available("bit") then
 elseif utility.is_module_available("bit32") then
     bit = require "bit32"
 end
+
+-- Random seed
+local nows, nowns = utility.get_current_time()
+math.randomseed(nowns)
 
 local function receive_icmp_pkt(sock, pkt_id)
     utility.logger(utility.loglevel.TRACE, "Entered receive_icmp_pkt() with value: " .. pkt_id)
