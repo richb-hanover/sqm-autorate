@@ -107,8 +107,8 @@ end
 
 socket.setsockopt(sock, socket.SOL_SOCKET, socket.SO_SNDTIMEO, 0, 500)
 
-local bit = utility.bit
-if not bit then
+lanes.bit = utility.bit
+if not lanes.bit then
     utility.logger(utility.loglevel.FATAL, "No bitwise module found")
     os.exit(1, true)
 end
