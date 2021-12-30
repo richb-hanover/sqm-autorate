@@ -119,4 +119,32 @@ function utility.get_time_after_midnight_ms()
     return (time_s % 86400 * 1000) + (math.floor(time_ns / 1000000))
 end
 
+function utility.calculate_checksum(data)
+    local checksum = 0
+    for i = 1, #data - 1, 2 do
+        checksum = checksum + (bit.lshift(string.byte(data, i), 8)) + string.byte(data, i + 1)
+    end
+    if bit.rshift(checksum, 16) then
+        checksum = bit.band(checksum, 0xffff) + bit.rshift(checksum, 16)
+    end
+    return bit.bnot(checksum)
+end
+
+function utility.get_table_position(tbl, item)
+    for i, value in ipairs(tbl) do
+        if value == item then
+            return i
+        end
+    end
+    return 0
+end
+
+function utility.maximum(table)
+    local m = -1 / 0
+    for _, v in pairs(table) do
+        m = math.max(v, m)
+    end
+    return m
+end
+
 return utility

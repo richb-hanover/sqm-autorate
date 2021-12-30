@@ -10,8 +10,8 @@
 -- ** Recommended style guide: https://github.com/luarocks/lua-style-guide **
 local lanes = require"lanes".configure()
 
-local utility = lanes.require(".\\utility")
-local tunables = lanes.require(".\\tunables")
+local utility = lanes.require "./utility"
+local tunables = lanes.require "./tunables"
 
 -- Try to load argparse if it's installed
 local argparse = nil
@@ -121,48 +121,6 @@ socket.setsockopt(sock, socket.SOL_SOCKET, socket.SO_SNDTIMEO, 0, 500)
 
 ---------------------------- Begin Local Functions ----------------------------
 
-local function dec_to_hex(number, digits)
-    local bit_mask = (bit.lshift(1, (digits * 4))) - 1
-    local str_fmt = "%0" .. digits .. "X"
-    return string.format(str_fmt, bit.band(number, bit_mask))
-end
-
-local function calculate_checksum(data)
-    local checksum = 0
-    for i = 1, #data - 1, 2 do
-        checksum = checksum + (bit.lshift(string.byte(data, i), 8)) + string.byte(data, i + 1)
-    end
-    if bit.rshift(checksum, 16) then
-        checksum = bit.band(checksum, 0xffff) + bit.rshift(checksum, 16)
-    end
-    return bit.bnot(checksum)
-end
-
-local function get_table_position(tbl, item)
-    for i, value in ipairs(tbl) do
-        if value == item then
-            return i
-        end
-    end
-    return 0
-end
-
-local function get_table_len(tbl)
-    local count = 0
-    for _ in pairs(tbl) do
-        count = count + 1
-    end
-    return count
-end
-
-local function maximum(table)
-    local m = -1 / 0
-    for _, v in pairs(table) do
-        m = math.max(v, m)
-    end
-    return m
-end
-
 local function update_cake_bandwidth(iface, rate_in_kbit)
     print(iface, rate_in_kbit)
     local is_changed = false
@@ -189,7 +147,7 @@ local function receive_icmp_pkt(pkt_id)
                 local ts_resp = vstruct.read("> 2*u1 3*u2 3*u4", string.sub(data, hdr_len + 1, #data))
                 local time_after_midnight_ms = utility.get_time_after_midnight_ms()
                 local src_pkt_id = ts_resp[4]
-                local pos = get_table_position(reflector_array_v4, sa.addr)
+                local pos = utility.get_table_position(reflector_array_v4, sa.addr)
 
                 -- A pos > 0 indicates the current sa.addr is a known member of the reflector array
                 if (pos > 0 and src_pkt_id == pkt_id) then
@@ -238,7 +196,7 @@ local function receive_udp_pkt(pkt_id)
 
         local time_after_midnight_ms = utility.get_time_after_midnight_ms()
         local src_pkt_id = ts_resp[4]
-        local pos = get_table_position(reflector_array_v4, sa.addr)
+        local pos = utility.get_table_position(reflector_array_v4, sa.addr)
 
         -- A pos > 0 indicates the current sa.addr is a known member of the reflector array
         if (pos > 0 and src_pkt_id == pkt_id) then
@@ -309,7 +267,7 @@ local function send_icmp_pkt(reflector, pkt_id)
     local time_after_midnight_ms = utility.get_time_after_midnight_ms()
     local ts_req = vstruct.write("> 2*u1 3*u2 3*u4", {13, 0, 0, pkt_id, 0, time_after_midnight_ms, 0, 0})
     local ts_req = vstruct.write("> 2*u1 3*u2 3*u4",
-        {13, 0, calculate_checksum(ts_req), pkt_id, 0, time_after_midnight_ms, 0, 0})
+        {13, 0, utility.calculate_checksum(ts_req), pkt_id, 0, time_after_midnight_ms, 0, 0})
 
     -- Send ICMP TS request
     local ok = socket.sendto(sock, ts_req, {
@@ -343,7 +301,7 @@ local function send_udp_pkt(reflector, pkt_id)
     local time, time_ns = utility.get_current_time()
     local ts_req = vstruct.write("> 2*u1 3*u2 6*u4", {13, 0, 0, pkt_id, 0, time, time_ns, 0, 0, 0, 0})
     local ts_req = vstruct.write("> 2*u1 3*u2 6*u4",
-        {13, 0, calculate_checksum(ts_req), pkt_id, 0, time, time_ns, 0, 0, 0, 0})
+        {13, 0, utility.calculate_checksum(ts_req), pkt_id, 0, time, time_ns, 0, 0, 0, 0})
 
     -- Send ICMP TS request
     local ok = socket.sendto(sock, ts_req, {
@@ -467,14 +425,14 @@ local function ratecontrol()
 
             if min_up_del < max_delta_owd and tx_load > .8 then
                 safe_ul_rates[nrate_up] = math.floor(cur_ul_rate * tx_load)
-                local maxul = maximum(safe_ul_rates)
+                local maxul = utility.maximum(safe_ul_rates)
                 next_ul_rate = cur_ul_rate * (1 + .1 * math.max(0, (1 - cur_ul_rate / maxul))) + 500
                 nrate_up = nrate_up + 1
                 nrate_up = nrate_up % histsize
             end
             if min_down_del < max_delta_owd and rx_load > .8 then
                 safe_dl_rates[nrate_down] = math.floor(cur_dl_rate * rx_load)
-                local maxdl = maximum(safe_dl_rates)
+                local maxdl = utility.maximum(safe_dl_rates)
                 next_dl_rate = cur_dl_rate * (1 + .1 * math.max(0, (1 - cur_dl_rate / maxdl))) + 500
                 nrate_down = nrate_down + 1
                 nrate_down = nrate_down % histsize
