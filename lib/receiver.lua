@@ -87,11 +87,11 @@ function receiver.receive_udp_pkt(sock, pkt_id)
 
     if data then
         local ts_resp = vstruct.read("> 2*u1 3*u2 6*u4", data)
-
+        print("HERE1")
         local time_after_midnight_ms = utility.get_time_after_midnight_ms()
         local src_pkt_id = ts_resp[4]
         local pos = utility.get_table_position(reflector_array_v4, sa.addr)
-
+        print("HERE2")
         -- A pos > 0 indicates the current sa.addr is a known member of the reflector array
         if (pos > 0 and src_pkt_id == pkt_id) then
             local originate_ts = (ts_resp[6] % 86400 * 1000) + (math.floor(ts_resp[7] / 1000000))
