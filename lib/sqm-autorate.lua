@@ -9,8 +9,10 @@
 --
 -- ** Recommended style guide: https://github.com/luarocks/lua-style-guide **
 local lanes = require"lanes".configure()
-local utility = lanes.require "./utility"
-local tunables = lanes.require "./tunables"
+
+local cur_dir = (...):match("(.-)[^%.]+$")
+local utility = lanes.require(cur_dir .. "utility")
+local tunables = lanes.require(cur_dir .. "tunables")
 
 -- Try to load argparse if it's installed
 local argparse = nil
