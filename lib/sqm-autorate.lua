@@ -57,18 +57,18 @@ else
 end
 
 ---------------------------- Begin Variables - External Settings ----------------------------
-local base_ul_rate = utility.get_config_setting("sqm-autorate", "network[0]", "transmit_kbits_base") or
+local base_ul_rate = utility.get_config_setting_as_num("sqm-autorate", "network[0]", "transmit_kbits_base") or
                          tunables.base_ul_rate
-local base_dl_rate = utility.get_config_setting("sqm-autorate", "network[0]", "receive_kbits_base") or
+local base_dl_rate = utility.get_config_setting_as_num("sqm-autorate", "network[0]", "receive_kbits_base") or
                          tunables.base_dl_rate
-local min_ul_rate = utility.get_config_setting("sqm-autorate", "network[0]", "transmit_kbits_min") or
+local min_ul_rate = utility.get_config_setting_as_num("sqm-autorate", "network[0]", "transmit_kbits_min") or
                         tunables.min_ul_rate
-local min_dl_rate = utility.get_config_setting("sqm-autorate", "network[0]", "receive_kbits_min") or
+local min_dl_rate = utility.get_config_setting_as_num("sqm-autorate", "network[0]", "receive_kbits_min") or
                         tunables.min_dl_rate
 local stats_file = utility.get_config_setting("sqm-autorate", "output[0]", "stats_file") or tunables.stats_file
 local speedhist_file = utility.get_config_setting("sqm-autorate", "output[0]", "speed_hist_file") or
                            tunables.speedhist_file
-local histsize = utility.get_config_setting("sqm-autorate", "output[0]", "hist_size") or tunables.histsize
+local histsize = utility.get_config_setting_as_num("sqm-autorate", "output[0]", "hist_size") or tunables.histsize
 local enable_verbose_baseline_output = tunables.enable_verbose_baseline_output
 local tick_duration = tunables.tick_duration
 local min_change_interval = tunables.min_change_interval

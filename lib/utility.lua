@@ -62,6 +62,14 @@ function utility.get_config_setting(config_file_name, config_section, setting_na
     return nil
 end
 
+function utility.get_config_setting_as_num(config_file_name, config_section, setting_name)
+    local value = utility.get_config_setting(config_file_name, config_section, setting_name)
+    if value then
+        return tonumber(value, 10)
+    end
+    return nil
+end
+
 utility.use_loglevel = utility.loglevel[string.upper(
     utility.get_config_setting("sqm-autorate", "output[0]", "log_level") or "INFO")]
 
