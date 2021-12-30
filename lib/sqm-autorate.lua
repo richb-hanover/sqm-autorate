@@ -135,7 +135,7 @@ local function receive_icmp_pkt(pkt_id)
 
     if data then
         local ip_start = string.byte(data, 1)
-        local ip_ver = bit.rshift(ip_start, 4)
+        local ip_ver = lanes.bit.rshift(ip_start, 4)
         local hdr_len = (ip_start - ip_ver * 16) * 4
 
         if (#data - hdr_len == 20) then
