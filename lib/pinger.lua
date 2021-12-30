@@ -9,6 +9,8 @@ local vstruct = require "vstruct"
 
 local udp_port = 62222
 
+local tick_duration = tunables.tick_duration
+
 local reflector_type = utility.get_config_setting("sqm-autorate", "network[0]", "reflector_type") or
                            tunables.reflector_type
 local reflector_array_v4 = {}
@@ -91,10 +93,10 @@ function pinger.send_udp_pkt(sock, reflector, pkt_id)
     return ok
 end
 
-function pinger.ts_ping_sender(sock, freq, pkt_id)
-    utility.logger(utility.loglevel.TRACE, "Entered ts_ping_sender() with values: " .. freq .. " | " ..
+function pinger.ts_ping_sender(sock, pkt_id)
+    utility.logger(utility.loglevel.TRACE, "Entered ts_ping_sender() with values: " .. pinger.tick_duration .. " | " ..
         pinger.reflector_type .. " | " .. pkt_id)
-    local ff = (freq / #reflector_array_v4)
+    local ff = (pinger.tick_duration / #reflector_array_v4)
     local sleep_time_ns = math.floor((ff % 1) * 1e9)
     local sleep_time_s = math.floor(ff)
     local ping_func = nil
