@@ -8,29 +8,13 @@
 -- Lua version maintained by @Lochnair, @dlakelan, and @_FailSafe (OpenWrt forum)
 --
 -- ** Recommended style guide: https://github.com/luarocks/lua-style-guide **
---
--- Found this clever function here: https://stackoverflow.com/a/15434737
--- This function will assist in compatibility given differences between OpenWrt, Turris OS, etc.
-local function is_module_available(name)
-    if package.loaded[name] then
-        return true
-    else
-        for _, searcher in ipairs(package.searchers or package.loaders) do
-            local loader = searcher(name)
-            if type(loader) == 'function' then
-                package.preload[name] = loader
-                return true
-            end
-        end
-        return false
-    end
-end
-
 local lanes = require"lanes".configure()
+local utility = lanes.require "lib.utility"
+local tunables = lanes.require "lib.tunables"
 
 -- Try to load argparse if it's installed
 local argparse = nil
-if is_module_available("argparse") then
+if utility.is_module_available("argparse") then
     argparse = lanes.require "argparse"
 end
 
@@ -58,6 +42,42 @@ owd_data:set("owd_recent", {})
 
 -- The versioning value for this script
 local _VERSION = "0.0.1b2"
+
+---------------------------- Begin Variables - External Settings ----------------------------
+local base_ul_rate = settings and tonumber(settings:get("sqm-autorate", "@network[0]", "transmit_kbits_base"), 10) or
+                         tunables.base_ul_rate
+local base_dl_rate = settings and tonumber(settings:get("sqm-autorate", "@network[0]", "receive_kbits_base"), 10) or
+                         tunables.base_dl_rate
+local min_ul_rate = settings and tonumber(settings:get("sqm-autorate", "@network[0]", "transmit_kbits_min"), 10) or
+                        tunables.min_ul_rate
+local min_dl_rate = settings and tonumber(settings:get("sqm-autorate", "@network[0]", "receive_kbits_min"), 10) or
+                        tunables.min_dl_rate
+local stats_file = settings and settings:get("sqm-autorate", "@output[0]", "stats_file") or tunables.stats_file
+local speedhist_file = settings and settings:get("sqm-autorate", "@output[0]", "speed_hist_file") or
+                           tunables.speedhist_file
+local histsize = settings and tonumber(settings:get("sqm-autorate", "@output[0]", "hist_size"), 10) or tunables.histsize
+local enable_verbose_baseline_output = tunables.enable_verbose_baseline_output
+local tick_duration = tunables.tick_duration
+local min_change_interval = tunables.min_change_interval
+local ul_if = settings and settings:get("sqm-autorate", "@network[0]", "transmit_interface") or tunables.ul_if
+local dl_if = settings and settings:get("sqm-autorate", "@network[0]", "receive_interface") or tunables.dl_if
+local reflector_type = settings and settings:get("sqm-autorate", "@network[0]", "reflector_type") or
+                           tunables.reflector_type
+local max_delta_owd = tunables.max_delta_owd
+local reflector_array_v4 = {}
+local reflector_array_v6 = {}
+
+if reflector_type == "icmp" then
+    reflector_array_v4 = {"46.227.200.54", "46.227.200.55", "194.242.2.2", "194.242.2.3", "149.112.112.10",
+                          "149.112.112.11", "149.112.112.112", "193.19.108.2", "193.19.108.3", "9.9.9.9", "9.9.9.10",
+                          "9.9.9.11"}
+else
+    reflector_array_v4 = {"65.21.108.153", "5.161.66.148", "216.128.149.82", "108.61.220.16", "185.243.217.26",
+                          "185.175.56.188", "176.126.70.119"}
+    reflector_array_v6 = {"2a01:4f9:c010:5469::1", "2a01:4ff:f0:2194::1", "2001:19f0:5c01:1bb6:5400:03ff:febe:3fae",
+                          "2001:19f0:6001:3de9:5400:03ff:febe:3f8e", "2a03:94e0:ffff:185:243:217:0:26",
+                          "2a0d:5600:30:46::2", "2a00:1a28:1157:3ef::2"}
+end
 
 local loglevel = {
     TRACE = {
@@ -93,16 +113,15 @@ local use_loglevel = loglevel.INFO
 local function logger(loglevel, message)
     if (loglevel.level <= use_loglevel.level) then
         local cur_date = os.date("%Y%m%dT%H:%M:%S")
-        -- local cur_date = os.date("%c")
         local out_str = string.format("[%s - %s]: %s", loglevel.name, cur_date, message)
         print(out_str)
     end
 end
 
 local bit = nil
-if is_module_available("bit") then
+if utility.is_module_available("bit") then
     bit = lanes.require "bit"
-elseif is_module_available("bit32") then
+elseif utility.is_module_available("bit32") then
     bit = lanes.require "bit32"
 else
     logger(loglevel.FATAL, "No bitwise module found")
@@ -112,7 +131,7 @@ end
 -- Figure out if we are running on OpenWrt here and load luci.model.uci if available...
 local uci_lib = nil
 local settings = nil
-if is_module_available("luci.model.uci") then
+if utility.is_module_available("luci.model.uci") then
     uci_lib = require("luci.model.uci")
     settings = uci_lib.cursor()
 end
@@ -127,54 +146,7 @@ if settings then
     end
 end
 
----------------------------- Begin Local Variables - External Settings ----------------------------
-local base_ul_rate = settings and tonumber(settings:get("sqm-autorate", "@network[0]", "transmit_kbits_base"), 10) or
-                         "<STEADY STATE UPLOAD>" -- steady state bandwidth for upload
-local base_dl_rate = settings and tonumber(settings:get("sqm-autorate", "@network[0]", "receive_kbits_base"), 10) or
-                         "<STEADY STATE DOWNLOAD>" -- steady state bandwidth for download
-
-local min_ul_rate = settings and tonumber(settings:get("sqm-autorate", "@network[0]", "transmit_kbits_min"), 10) or
-                        "<MIN UPLOAD RATE>" -- don't go below this many kbps
-local min_dl_rate = settings and tonumber(settings:get("sqm-autorate", "@network[0]", "receive_kbits_min"), 10) or
-                        "<MIN DOWNLOAD RATE>" -- don't go below this many kbps
-
-local stats_file = settings and settings:get("sqm-autorate", "@output[0]", "stats_file") or "<STATS FILE NAME/PATH>"
-local speedhist_file = settings and settings:get("sqm-autorate", "@output[0]", "speed_hist_file") or
-                           "<HIST FILE NAME/PATH>"
-
-local histsize = settings and tonumber(settings:get("sqm-autorate", "@output[0]", "hist_size"), 10) or "<HISTORY SIZE>"
-
 use_loglevel = loglevel[string.upper(settings and settings:get("sqm-autorate", "@output[0]", "log_level") or "INFO")]
-
----------------------------- Begin Advanced User-Configurable Local Variables ----------------------------
-local enable_verbose_baseline_output = false
-
-local tick_duration = 0.5 -- Frequency in seconds
-local min_change_interval = 0.5 -- don't change speeds unless this many seconds has passed since last change
-
--- Interface names: leave empty to use values from SQM config or place values here to override SQM config
-local ul_if = settings and settings:get("sqm-autorate", "@network[0]", "transmit_interface") or
-                  "<UPLOAD INTERFACE NAME>" -- upload interface
-local dl_if = settings and settings:get("sqm-autorate", "@network[0]", "receive_interface") or
-                  "<DOWNLOAD INTERFACE NAME>" -- download interface
-
-local reflector_type = settings and settings:get("sqm-autorate", "@network[0]", "reflector_type") or nil
-local reflector_array_v4 = {}
-local reflector_array_v6 = {}
-
-if reflector_type == "icmp" then
-    reflector_array_v4 = {"46.227.200.54", "46.227.200.55", "194.242.2.2", "194.242.2.3", "149.112.112.10",
-                          "149.112.112.11", "149.112.112.112", "193.19.108.2", "193.19.108.3", "9.9.9.9", "9.9.9.10",
-                          "9.9.9.11"}
-else
-    reflector_array_v4 = {"65.21.108.153", "5.161.66.148", "216.128.149.82", "108.61.220.16", "185.243.217.26",
-                          "185.175.56.188", "176.126.70.119"}
-    reflector_array_v6 = {"2a01:4f9:c010:5469::1", "2a01:4ff:f0:2194::1", "2001:19f0:5c01:1bb6:5400:03ff:febe:3fae",
-                          "2001:19f0:6001:3de9:5400:03ff:febe:3f8e", "2a03:94e0:ffff:185:243:217:0:26",
-                          "2a0d:5600:30:46::2", "2a00:1a28:1157:3ef::2"}
-end
-
-local max_delta_owd = 15 -- increase from baseline RTT for detection of bufferbloat
 
 ---------------------------- Begin Internal Local Variables ----------------------------
 
