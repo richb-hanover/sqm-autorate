@@ -1,5 +1,32 @@
 local utility = {}
 
+utility.loglevel = {
+    TRACE = {
+        level = 6,
+        name = "TRACE"
+    },
+    DEBUG = {
+        level = 5,
+        name = "DEBUG"
+    },
+    INFO = {
+        level = 4,
+        name = "INFO"
+    },
+    WARN = {
+        level = 3,
+        name = "WARN"
+    },
+    ERROR = {
+        level = 2,
+        name = "ERROR"
+    },
+    FATAL = {
+        level = 1,
+        name = "FATAL"
+    }
+}
+
 -- Found this clever function here: https://stackoverflow.com/a/15434737
 -- This function will assist in compatibility given differences between OpenWrt, Turris OS, etc.
 function utility.is_module_available(name)
@@ -17,9 +44,12 @@ function utility.is_module_available(name)
     end
 end
 
+utility.use_loglevel = utility.loglevel[string.upper(
+    utility.get_config_setting("sqm-autorate", "output[0]", "log_level") or "INFO")]
+
 -- Basic homegrown logger to keep us from having to import yet another module
 function utility.logger(loglevel, message)
-    if (loglevel.level <= use_loglevel.level) then
+    if (loglevel.level <= utility.use_loglevel.level) then
         local cur_date = os.date("%Y%m%dT%H:%M:%S")
         local out_str = string.format("[%s - %s]: %s", loglevel.name, cur_date, message)
         print(out_str)

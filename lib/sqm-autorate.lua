@@ -43,35 +43,8 @@ owd_data:set("owd_recent", {})
 -- The versioning value for this script
 local _VERSION = "0.0.1b2"
 
-local loglevel = {
-    TRACE = {
-        level = 6,
-        name = "TRACE"
-    },
-    DEBUG = {
-        level = 5,
-        name = "DEBUG"
-    },
-    INFO = {
-        level = 4,
-        name = "INFO"
-    },
-    WARN = {
-        level = 3,
-        name = "WARN"
-    },
-    ERROR = {
-        level = 2,
-        name = "ERROR"
-    },
-    FATAL = {
-        level = 1,
-        name = "FATAL"
-    }
-}
-
 -- Set a default log level here, until we've got one from UCI
-local use_loglevel = loglevel.INFO
+local use_loglevel = utility.loglevel.INFO
 
 local bit = nil
 if utility.is_module_available("bit") then
@@ -79,11 +52,9 @@ if utility.is_module_available("bit") then
 elseif utility.is_module_available("bit32") then
     bit = lanes.require "bit32"
 else
-    logger(loglevel.FATAL, "No bitwise module found")
+    utility.logger(utility.loglevel.FATAL, "No bitwise module found")
     os.exit(1, true)
 end
-
-use_loglevel = loglevel[string.upper(utility.get_config_setting("sqm-autorate", "output[0]", "log_level") or "INFO")]
 
 ---------------------------- Begin Variables - External Settings ----------------------------
 local base_ul_rate = utility.get_config_setting("sqm-autorate", "network[0]", "transmit_kbits_base") or
@@ -139,7 +110,7 @@ if reflector_type == "icmp" then
 elseif reflector_type == "udp" then
     sock = assert(socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP), "Failed to create socket")
 else
-    logger(loglevel.FATAL, "Unknown reflector type specified. Cannot continue.")
+    utility.logger(utility.loglevel.FATAL, "Unknown reflector type specified. Cannot continue.")
     os.exit(1, true)
 end
 
@@ -235,7 +206,7 @@ local function update_cake_bandwidth(iface, rate_in_kbit)
 end
 
 local function receive_icmp_pkt(pkt_id)
-    logger(loglevel.TRACE, "Entered receive_icmp_pkt() with value: " .. pkt_id)
+    utility.logger(utility.loglevel.TRACE, "Entered receive_icmp_pkt() with value: " .. pkt_id)
 
     -- Read ICMP TS reply
     local data, sa = socket.recvfrom(sock, 100) -- An IPv4 ICMP reply should be ~56bytes. This value may need tweaking.
@@ -264,32 +235,32 @@ local function receive_icmp_pkt(pkt_id)
                         downlink_time = time_after_midnight_ms - ts_resp[8]
                     }
 
-                    logger(loglevel.DEBUG,
+                    utility.logger(utility.loglevel.DEBUG,
                         "Reflector IP: " .. stats.reflector .. "  |  Current time: " .. time_after_midnight_ms ..
                             "  |  TX at: " .. stats.original_ts .. "  |  RTT: " .. stats.rtt .. "  |  UL time: " ..
                             stats.uplink_time .. "  |  DL time: " .. stats.downlink_time)
-                    logger(loglevel.TRACE, "Exiting receive_icmp_pkt() with stats return")
+                    utility.logger(utility.loglevel.TRACE, "Exiting receive_icmp_pkt() with stats return")
 
                     return stats
                 end
             else
-                logger(loglevel.TRACE, "Exiting receive_icmp_pkt() with nil return due to wrong type")
+                utility.logger(utility.loglevel.TRACE, "Exiting receive_icmp_pkt() with nil return due to wrong type")
                 return nil
 
             end
         else
-            logger(loglevel.TRACE, "Exiting receive_icmp_pkt() with nil return due to wrong length")
+            utility.logger(utility.loglevel.TRACE, "Exiting receive_icmp_pkt() with nil return due to wrong length")
             return nil
         end
     else
-        logger(loglevel.TRACE, "Exiting receive_icmp_pkt() with nil return")
+        utility.logger(utility.loglevel.TRACE, "Exiting receive_icmp_pkt() with nil return")
 
         return nil
     end
 end
 
 local function receive_udp_pkt(pkt_id)
-    logger(loglevel.TRACE, "Entered receive_udp_pkt() with value: " .. pkt_id)
+    utility.logger(utility.loglevel.TRACE, "Entered receive_udp_pkt() with value: " .. pkt_id)
 
     -- Read UDP TS reply
     local data, sa = socket.recvfrom(sock, 100) -- An IPv4 ICMP reply should be ~56bytes. This value may need tweaking.
@@ -317,23 +288,23 @@ local function receive_udp_pkt(pkt_id)
                 downlink_time = time_after_midnight_ms - transmit_ts
             }
 
-            logger(loglevel.DEBUG,
+            utility.logger(utility.loglevel.DEBUG,
                 "Reflector IP: " .. stats.reflector .. "  |  Current time: " .. time_after_midnight_ms .. "  |  TX at: " ..
                     stats.original_ts .. "  |  RTT: " .. stats.rtt .. "  |  UL time: " .. stats.uplink_time ..
                     "  |  DL time: " .. stats.downlink_time)
-            logger(loglevel.TRACE, "Exiting receive_udp_pkt() with stats return")
+            utility.logger(utility.loglevel.TRACE, "Exiting receive_udp_pkt() with stats return")
 
             return stats
         end
     else
-        logger(loglevel.TRACE, "Exiting receive_udp_pkt() with nil return")
+        utility.logger(utility.loglevel.TRACE, "Exiting receive_udp_pkt() with nil return")
 
         return nil
     end
 end
 
 local function ts_ping_receiver(pkt_id, pkt_type)
-    logger(loglevel.TRACE, "Entered ts_ping_receiver() with value: " .. pkt_id)
+    utility.logger(utility.loglevel.TRACE, "Entered ts_ping_receiver() with value: " .. pkt_id)
 
     local receive_func = nil
     if pkt_type == "icmp" then
@@ -341,7 +312,7 @@ local function ts_ping_receiver(pkt_id, pkt_type)
     elseif pkt_type == "udp" then
         receive_func = receive_udp_pkt
     else
-        logger(loglevel.ERROR, "Unknown packet type specified.")
+        utility.logger(utility.loglevel.ERROR, "Unknown packet type specified.")
     end
 
     while true do
@@ -364,7 +335,7 @@ local function send_icmp_pkt(reflector, pkt_id)
     -- Received timestamp - 4 bytes
     -- Transmit timestamp - 4 bytes
 
-    logger(loglevel.TRACE, "Entered send_icmp_pkt() with values: " .. reflector .. " | " .. pkt_id)
+    utility.logger(utility.loglevel.TRACE, "Entered send_icmp_pkt() with values: " .. reflector .. " | " .. pkt_id)
 
     -- Create a raw ICMP timestamp request message
     local time_after_midnight_ms = get_time_after_midnight_ms()
@@ -379,7 +350,7 @@ local function send_icmp_pkt(reflector, pkt_id)
         port = 0
     })
 
-    logger(loglevel.TRACE, "Exiting send_icmp_pkt()")
+    utility.logger(utility.loglevel.TRACE, "Exiting send_icmp_pkt()")
 
     return ok
 end
@@ -398,7 +369,7 @@ local function send_udp_pkt(reflector, pkt_id)
     -- Transmit timestamp - 4 bytes
     -- Transmit timestamp (nanoseconds) - 4 bytes
 
-    logger(loglevel.TRACE, "Entered send_udp_pkt() with values: " .. reflector .. " | " .. pkt_id)
+    utility.logger(utility.loglevel.TRACE, "Entered send_udp_pkt() with values: " .. reflector .. " | " .. pkt_id)
 
     -- Create a raw ICMP timestamp request message
     local time, time_ns = get_current_time()
@@ -413,13 +384,14 @@ local function send_udp_pkt(reflector, pkt_id)
         port = 62222
     })
 
-    logger(loglevel.TRACE, "Exiting send_udp_pkt()")
+    utility.logger(utility.loglevel.TRACE, "Exiting send_udp_pkt()")
 
     return ok
 end
 
 local function ts_ping_sender(pkt_type, pkt_id, freq)
-    logger(loglevel.TRACE, "Entered ts_ping_sender() with values: " .. freq .. " | " .. pkt_type .. " | " .. pkt_id)
+    utility.logger(utility.loglevel.TRACE,
+        "Entered ts_ping_sender() with values: " .. freq .. " | " .. pkt_type .. " | " .. pkt_id)
     local ff = (freq / #reflector_array_v4)
     local sleep_time_ns = math.floor((ff % 1) * 1e9)
     local sleep_time_s = math.floor(ff)
@@ -430,7 +402,7 @@ local function ts_ping_sender(pkt_type, pkt_id, freq)
     elseif pkt_type == "udp" then
         ping_func = send_udp_pkt
     else
-        logger(loglevel.ERROR, "Unknown packet type specified.")
+        utility.logger(utility.loglevel.ERROR, "Unknown packet type specified.")
     end
 
     while true do
@@ -441,7 +413,7 @@ local function ts_ping_sender(pkt_type, pkt_id, freq)
 
     end
 
-    logger(loglevel.TRACE, "Exiting ts_ping_sender()")
+    utility.logger(utility.loglevel.TRACE, "Exiting ts_ping_sender()")
 end
 
 local function read_stats_file(file)
@@ -465,7 +437,8 @@ local function ratecontrol()
     local tx_bytes_file = io.open(tx_bytes_path)
 
     if not rx_bytes_file or not tx_bytes_file then
-        logger(loglevel.FATAL, "Could not open stats file: '" .. rx_bytes_path .. "' or '" .. tx_bytes_path .. "'")
+        utility.logger(utility.loglevel.FATAL,
+            "Could not open stats file: '" .. rx_bytes_path .. "' or '" .. tx_bytes_path .. "'")
         os.exit(1, true)
         return nil
     end
@@ -509,7 +482,7 @@ local function ratecontrol()
                 min_up_del = math.min(min_up_del, owd_recent[k].up_ewma - val.up_ewma)
                 min_down_del = math.min(min_down_del, owd_recent[k].down_ewma - val.down_ewma)
 
-                logger(loglevel.INFO, "min_up_del: " .. min_up_del .. "  min_down_del: " .. min_down_del)
+                utility.logger(utility.loglevel.INFO, "min_up_del: " .. min_up_del .. "  min_down_del: " .. min_down_del)
             end
 
             local cur_rx_bytes = read_stats_file(rx_bytes_file)
@@ -568,7 +541,7 @@ local function ratecontrol()
             cur_dl_rate = next_dl_rate
             cur_ul_rate = next_ul_rate
 
-            logger(loglevel.DEBUG,
+            utility.logger(utility.loglevel.DEBUG,
                 string.format("%d,%d,%f,%f,%f,%f,%d,%d\n", lastchg_s, lastchg_ns, rx_load, tx_load, min_down_del,
                     min_up_del, cur_dl_rate, cur_ul_rate))
 
@@ -646,15 +619,15 @@ local function baseline_calculator()
                 for ref, val in pairs(owd_baseline) do
                     local up_ewma = a_else_b(val.up_ewma, "?")
                     local down_ewma = a_else_b(val.down_ewma, "?")
-                    logger(loglevel.INFO,
-                        "Reflector " .. ref .. " up baseline = " .. up_ewma .. " down baseline = " .. down_ewma)
+                    utility.logger(utility.loglevel.INFO, "Reflector " .. ref .. " up baseline = " .. up_ewma ..
+                        " down baseline = " .. down_ewma)
                 end
 
                 for ref, val in pairs(owd_recent) do
                     local up_ewma = a_else_b(val.up_ewma, "?")
                     local down_ewma = a_else_b(val.down_ewma, "?")
-                    logger(loglevel.INFO,
-                        "Reflector " .. ref .. " up baseline = " .. up_ewma .. " down baseline = " .. down_ewma)
+                    utility.logger(utility.loglevel.INFO, "Reflector " .. ref .. " up baseline = " .. up_ewma ..
+                        " down baseline = " .. down_ewma)
                 end
             end
         end
@@ -665,13 +638,13 @@ end
 ---------------------------- Begin Conductor ----------------------------
 local function conductor()
     print("Starting sqm-autorate.lua v" .. _VERSION)
-    logger(loglevel.TRACE, "Entered conductor()")
+    utility.logger(utility.loglevel.TRACE, "Entered conductor()")
 
     -- Figure out the interfaces in play here
     -- if ul_if == "" then
     --     ul_if = settings and settings:get("sqm", "@queue[0]", "interface")
     --     if not ul_if then
-    --         logger(loglevel.FATAL, "Upload interface not found in SQM config and was not overriden. Cannot continue.")
+    --         utility.logger(utility.loglevel.FATAL, "Upload interface not found in SQM config and was not overriden. Cannot continue.")
     --         os.exit(1, true)
     --     end
     -- end
@@ -686,14 +659,14 @@ local function conductor()
     --         local ifb_name = string.match(tc_filter, "veth[%a%d]+")
     --     end
     --     if not ifb_name then
-    --         logger(loglevel.FATAL, string.format(
+    --         utility.logger(utility.loglevel.FATAL, string.format(
     --             "Download interface not found for upload interface %s and was not overriden. Cannot continue.", ul_if))
     --         os.exit(1, true)
     --     end
 
     --     dl_if = ifb_name
     -- end
-    logger(loglevel.DEBUG, "Upload iface: " .. ul_if .. " | Download iface: " .. dl_if)
+    utility.logger(utility.loglevel.DEBUG, "Upload iface: " .. ul_if .. " | Download iface: " .. dl_if)
 
     -- Verify these are correct using "cat /sys/class/..."
     if dl_if:find("^ifb.+") or dl_if:find("^veth.+") then
@@ -708,20 +681,20 @@ local function conductor()
         tx_bytes_path = "/sys/class/net/" .. ul_if .. "/statistics/tx_bytes"
     end
 
-    logger(loglevel.DEBUG, "rx_bytes_path: " .. rx_bytes_path)
-    logger(loglevel.DEBUG, "tx_bytes_path: " .. tx_bytes_path)
+    utility.logger(utility.loglevel.DEBUG, "rx_bytes_path: " .. rx_bytes_path)
+    utility.logger(utility.loglevel.DEBUG, "tx_bytes_path: " .. tx_bytes_path)
 
     -- Test for existent stats files
     local test_file = io.open(rx_bytes_path)
     if not test_file then
-        logger(loglevel.FATAL, "Could not open stats file: " .. rx_bytes_path)
+        utility.logger(utility.loglevel.FATAL, "Could not open stats file: " .. rx_bytes_path)
         os.exit(1, true)
     end
     test_file:close()
 
     test_file = io.open(tx_bytes_path)
     if not test_file then
-        logger(loglevel.FATAL, "Could not open stats file: " .. tx_bytes_path)
+        utility.logger(utility.loglevel.FATAL, "Could not open stats file: " .. tx_bytes_path)
         os.exit(1, true)
     end
     test_file:close()
