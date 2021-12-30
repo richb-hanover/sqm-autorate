@@ -124,6 +124,7 @@ local function receive_udp_pkt(sock, pkt_id)
 end
 
 local function ts_ping_receiver(sock, statistics_queue, pkt_id)
+    print(sock, statistics_queue, pkt_id)
     utility.logger(utility.loglevel.TRACE, "Entered ts_ping_receiver() with value: " .. pkt_id)
 
     local receive_func = nil
