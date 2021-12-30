@@ -3,7 +3,7 @@ local utility = {}
 local math = require "math"
 local time = require "posix.time"
 
-utility.bit = nil
+local bit = nil
 
 utility.loglevel = {
     TRACE = {
@@ -122,20 +122,20 @@ function utility.get_time_after_midnight_ms()
 end
 
 if utility.is_module_available("bit") then
-    utility.bit = require "bit"
+    bit = require "bit"
 elseif utility.is_module_available("bit32") then
-    utility.bit = require "bit32"
+    bit = require "bit32"
 end
 
 function utility.calculate_checksum(data)
     local checksum = 0
     for i = 1, #data - 1, 2 do
-        checksum = checksum + (utility.bit.lshift(string.byte(data, i), 8)) + string.byte(data, i + 1)
+        checksum = checksum + (bit.lshift(string.byte(data, i), 8)) + string.byte(data, i + 1)
     end
-    if utility.bit.rshift(checksum, 16) then
-        checksum = utility.bit.band(checksum, 0xffff) + utility.bit.rshift(checksum, 16)
+    if bit.rshift(checksum, 16) then
+        checksum = bit.band(checksum, 0xffff) + bit.rshift(checksum, 16)
     end
-    return utility.bit.bnot(checksum)
+    return bit.bnot(checksum)
 end
 
 function utility.get_table_position(tbl, item)

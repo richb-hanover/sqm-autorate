@@ -107,8 +107,12 @@ end
 
 socket.setsockopt(sock, socket.SOL_SOCKET, socket.SO_SNDTIMEO, 0, 500)
 
-lanes.bit = utility.bit
-if not lanes.bit then
+local bit
+if utility.is_module_available("bit") then
+    bit = lanes.require "bit"
+elseif utility.is_module_available("bit32") then
+    bit = lanes.require "bit32"
+else
     utility.logger(utility.loglevel.FATAL, "No bitwise module found")
     os.exit(1, true)
 end
@@ -135,7 +139,7 @@ local function receive_icmp_pkt(pkt_id)
 
     if data then
         local ip_start = string.byte(data, 1)
-        local ip_ver = lanes.bit.rshift(ip_start, 4)
+        local ip_ver = bit.rshift(ip_start, 4)
         local hdr_len = (ip_start - ip_ver * 16) * 4
 
         if (#data - hdr_len == 20) then
