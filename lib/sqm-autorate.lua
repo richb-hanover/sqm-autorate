@@ -73,15 +73,6 @@ local loglevel = {
 -- Set a default log level here, until we've got one from UCI
 local use_loglevel = loglevel.INFO
 
--- Basic homegrown logger to keep us from having to import yet another module
-local function logger(loglevel, message)
-    if (loglevel.level <= use_loglevel.level) then
-        local cur_date = os.date("%Y%m%dT%H:%M:%S")
-        local out_str = string.format("[%s - %s]: %s", loglevel.name, cur_date, message)
-        print(out_str)
-    end
-end
-
 local bit = nil
 if utility.is_module_available("bit") then
     bit = lanes.require "bit"
@@ -92,45 +83,27 @@ else
     os.exit(1, true)
 end
 
--- Figure out if we are running on OpenWrt here and load luci.model.uci if available...
-local uci_lib = nil
-local settings = nil
-if utility.is_module_available("luci.model.uci") then
-    uci_lib = require("luci.model.uci")
-    settings = uci_lib.cursor()
-end
-
--- If we have luci-app-sqm installed, but it is disabled, this whole thing is moot. Let's bail early in that case.
-if settings then
-    local sqm_enabled = tonumber(settings:get("sqm", "@queue[0]", "enabled"), 10)
-    if sqm_enabled == 0 then
-        logger(loglevel.FATAL,
-            "SQM is not enabled on this OpenWrt system. Please enable it before starting sqm-autorate.")
-        os.exit(1, true)
-    end
-end
-
-use_loglevel = loglevel[string.upper(settings and settings:get("sqm-autorate", "@output[0]", "log_level") or "INFO")]
+use_loglevel = loglevel[string.upper(utility.get_config_setting("sqm-autorate", "output[0]", "log_level") or "INFO")]
 
 ---------------------------- Begin Variables - External Settings ----------------------------
-local base_ul_rate = settings and tonumber(settings:get("sqm-autorate", "@network[0]", "transmit_kbits_base"), 10) or
+local base_ul_rate = utility.get_config_setting("sqm-autorate", "network[0]", "transmit_kbits_base") or
                          tunables.base_ul_rate
-local base_dl_rate = settings and tonumber(settings:get("sqm-autorate", "@network[0]", "receive_kbits_base"), 10) or
+local base_dl_rate = utility.get_config_setting("sqm-autorate", "network[0]", "receive_kbits_base") or
                          tunables.base_dl_rate
-local min_ul_rate = settings and tonumber(settings:get("sqm-autorate", "@network[0]", "transmit_kbits_min"), 10) or
+local min_ul_rate = utility.get_config_setting("sqm-autorate", "network[0]", "transmit_kbits_min") or
                         tunables.min_ul_rate
-local min_dl_rate = settings and tonumber(settings:get("sqm-autorate", "@network[0]", "receive_kbits_min"), 10) or
+local min_dl_rate = utility.get_config_setting("sqm-autorate", "network[0]", "receive_kbits_min") or
                         tunables.min_dl_rate
-local stats_file = settings and settings:get("sqm-autorate", "@output[0]", "stats_file") or tunables.stats_file
-local speedhist_file = settings and settings:get("sqm-autorate", "@output[0]", "speed_hist_file") or
+local stats_file = utility.get_config_setting("sqm-autorate", "output[0]", "stats_file") or tunables.stats_file
+local speedhist_file = utility.get_config_setting("sqm-autorate", "output[0]", "speed_hist_file") or
                            tunables.speedhist_file
-local histsize = settings and tonumber(settings:get("sqm-autorate", "@output[0]", "hist_size"), 10) or tunables.histsize
+local histsize = utility.get_config_setting("sqm-autorate", "output[0]", "hist_size") or tunables.histsize
 local enable_verbose_baseline_output = tunables.enable_verbose_baseline_output
 local tick_duration = tunables.tick_duration
 local min_change_interval = tunables.min_change_interval
-local ul_if = settings and settings:get("sqm-autorate", "@network[0]", "transmit_interface") or tunables.ul_if
-local dl_if = settings and settings:get("sqm-autorate", "@network[0]", "receive_interface") or tunables.dl_if
-local reflector_type = settings and settings:get("sqm-autorate", "@network[0]", "reflector_type") or
+local ul_if = utility.get_config_setting("sqm-autorate", "network[0]", "transmit_interface") or tunables.ul_if
+local dl_if = utility.get_config_setting("sqm-autorate", "network[0]", "receive_interface") or tunables.dl_if
+local reflector_type = utility.get_config_setting("sqm-autorate", "network[0]", "reflector_type") or
                            tunables.reflector_type
 local max_delta_owd = tunables.max_delta_owd
 local reflector_array_v4 = {}
