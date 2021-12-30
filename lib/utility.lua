@@ -44,18 +44,6 @@ function utility.is_module_available(name)
     end
 end
 
-utility.use_loglevel = utility.loglevel[string.upper(
-    utility.get_config_setting("sqm-autorate", "output[0]", "log_level") or "INFO")]
-
--- Basic homegrown logger to keep us from having to import yet another module
-function utility.logger(loglevel, message)
-    if (loglevel.level <= utility.use_loglevel.level) then
-        local cur_date = os.date("%Y%m%dT%H:%M:%S")
-        local out_str = string.format("[%s - %s]: %s", loglevel.name, cur_date, message)
-        print(out_str)
-    end
-end
-
 function utility.get_config_setting(config_file_name, config_section, setting_name)
     config_file_name = config_file_name or "sqm-autorate" -- Default to sqm-autorate if not provided
 
@@ -72,6 +60,18 @@ function utility.get_config_setting(config_file_name, config_section, setting_na
     end
 
     return nil
+end
+
+utility.use_loglevel = utility.loglevel[string.upper(
+    utility.get_config_setting("sqm-autorate", "output[0]", "log_level") or "INFO")]
+
+-- Basic homegrown logger to keep us from having to import yet another module
+function utility.logger(loglevel, message)
+    if (loglevel.level <= utility.use_loglevel.level) then
+        local cur_date = os.date("%Y%m%dT%H:%M:%S")
+        local out_str = string.format("[%s - %s]: %s", loglevel.name, cur_date, message)
+        print(out_str)
+    end
 end
 
 return utility
