@@ -84,7 +84,7 @@ function receiver.receive_udp_pkt(sock, pkt_id)
 
     -- Read UDP TS reply
     local data, sa = socket.recvfrom(sock, 100) -- An IPv4 ICMP reply should be ~56bytes. This value may need tweaking.
-
+    print("HERE3")
     if data then
         local ts_resp = vstruct.read("> 2*u1 3*u2 6*u4", data)
         print("HERE1")
