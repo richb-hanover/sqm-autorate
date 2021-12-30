@@ -11,20 +11,6 @@ local udp_port = 62222
 
 local reflector_type = utility.get_config_setting("sqm-autorate", "network[0]", "reflector_type") or
                            tunables.reflector_type
-local reflector_array_v4 = {}
-local reflector_array_v6 = {}
-
-if reflector_type == "icmp" then
-    reflector_array_v4 = {"46.227.200.54", "46.227.200.55", "194.242.2.2", "194.242.2.3", "149.112.112.10",
-                          "149.112.112.11", "149.112.112.112", "193.19.108.2", "193.19.108.3", "9.9.9.9", "9.9.9.10",
-                          "9.9.9.11"}
-else
-    reflector_array_v4 = {"65.21.108.153", "5.161.66.148", "216.128.149.82", "108.61.220.16", "185.243.217.26",
-                          "185.175.56.188", "176.126.70.119"}
-    reflector_array_v6 = {"2a01:4f9:c010:5469::1", "2a01:4ff:f0:2194::1", "2001:19f0:5c01:1bb6:5400:03ff:febe:3fae",
-                          "2001:19f0:6001:3de9:5400:03ff:febe:3f8e", "2a03:94e0:ffff:185:243:217:0:26",
-                          "2a0d:5600:30:46::2", "2a00:1a28:1157:3ef::2"}
-end
 
 local bit
 if utility.is_module_available("bit") then
@@ -49,7 +35,7 @@ local function receive_icmp_pkt(sock, pkt_id)
                 local ts_resp = vstruct.read("> 2*u1 3*u2 3*u4", string.sub(data, hdr_len + 1, #data))
                 local time_after_midnight_ms = utility.get_time_after_midnight_ms()
                 local src_pkt_id = ts_resp[4]
-                local pos = utility.get_table_position(reflector_array_v4, sa.addr)
+                local pos = utility.get_table_position(tunables.reflector_array_v4, sa.addr)
 
                 -- A pos > 0 indicates the current sa.addr is a known member of the reflector array
                 if (pos > 0 and src_pkt_id == pkt_id) then
@@ -98,7 +84,7 @@ local function receive_udp_pkt(sock, pkt_id)
 
         local time_after_midnight_ms = utility.get_time_after_midnight_ms()
         local src_pkt_id = ts_resp[4]
-        local pos = utility.get_table_position(reflector_array_v4, sa.addr)
+        local pos = utility.get_table_position(tunables.reflector_array_v4, sa.addr)
 
         -- A pos > 0 indicates the current sa.addr is a known member of the reflector array
         if (pos > 0 and src_pkt_id == pkt_id) then
