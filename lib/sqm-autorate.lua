@@ -348,7 +348,7 @@ local function read_stats_file(file)
     return bytes
 end
 
-local function ratecontrol()
+local function ratecontrol(owd_data_struct)
     local sleep_time_ns = math.floor((min_change_interval % 1) * 1e9)
     local sleep_time_s = math.floor(min_change_interval)
 
@@ -398,8 +398,8 @@ local function ratecontrol()
             -- if it's been long enough, and the stats indicate needing to change speeds
             -- change speeds here
 
-            local owd_baseline = owd_data:get("owd_baseline")
-            local owd_recent = owd_data:get("owd_recent")
+            local owd_baseline = owd_data_struct:get("owd_baseline")
+            local owd_recent = owd_data_struct:get("owd_recent")
 
             local min_up_del = 1 / 0
             local min_down_del = 1 / 0
@@ -492,14 +492,14 @@ local function ratecontrol()
     end
 end
 
-local function baseline_calculator()
+local function baseline_calculator(owd_data_struct)
     local slow_factor = .9
     local fast_factor = .2
 
     while true do
         local _, time_data = stats_queue:receive(nil, "stats")
-        local owd_baseline = owd_data:get("owd_baseline")
-        local owd_recent = owd_data:get("owd_recent")
+        local owd_baseline = owd_data_struct:get("owd_baseline")
+        local owd_recent = owd_data_struct:get("owd_recent")
 
         if time_data then
             if not owd_baseline[time_data.reflector] then
@@ -538,8 +538,8 @@ local function baseline_calculator()
                 owd_recent[time_data.reflector].down_ewma)
 
             -- Set the values back into the shared tables
-            owd_data:set("owd_baseline", owd_baseline)
-            owd_data:set("owd_recent", owd_recent)
+            owd_data_struct:set("owd_baseline", owd_baseline)
+            owd_data_struct:set("owd_recent", owd_recent)
 
             if enable_verbose_baseline_output then
                 for ref, val in pairs(owd_baseline) do
@@ -645,10 +645,10 @@ local function conductor()
         }, ts_ping_receiver)(packet_id, reflector_type),
         baseliner = lanes.gen("*", {
             required = {"bit32", "posix", "posix.time"}
-        }, baseline_calculator)(),
+        }, baseline_calculator)(owd_data),
         regulator = lanes.gen("*", {
             required = {"bit32", "posix", "posix.time"}
-        }, ratecontrol)()
+        }, ratecontrol)(owd_data)
     }
     local join_timeout = 0.5
 
