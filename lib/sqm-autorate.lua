@@ -43,42 +43,6 @@ owd_data:set("owd_recent", {})
 -- The versioning value for this script
 local _VERSION = "0.0.1b2"
 
----------------------------- Begin Variables - External Settings ----------------------------
-local base_ul_rate = settings and tonumber(settings:get("sqm-autorate", "@network[0]", "transmit_kbits_base"), 10) or
-                         tunables.base_ul_rate
-local base_dl_rate = settings and tonumber(settings:get("sqm-autorate", "@network[0]", "receive_kbits_base"), 10) or
-                         tunables.base_dl_rate
-local min_ul_rate = settings and tonumber(settings:get("sqm-autorate", "@network[0]", "transmit_kbits_min"), 10) or
-                        tunables.min_ul_rate
-local min_dl_rate = settings and tonumber(settings:get("sqm-autorate", "@network[0]", "receive_kbits_min"), 10) or
-                        tunables.min_dl_rate
-local stats_file = settings and settings:get("sqm-autorate", "@output[0]", "stats_file") or tunables.stats_file
-local speedhist_file = settings and settings:get("sqm-autorate", "@output[0]", "speed_hist_file") or
-                           tunables.speedhist_file
-local histsize = settings and tonumber(settings:get("sqm-autorate", "@output[0]", "hist_size"), 10) or tunables.histsize
-local enable_verbose_baseline_output = tunables.enable_verbose_baseline_output
-local tick_duration = tunables.tick_duration
-local min_change_interval = tunables.min_change_interval
-local ul_if = settings and settings:get("sqm-autorate", "@network[0]", "transmit_interface") or tunables.ul_if
-local dl_if = settings and settings:get("sqm-autorate", "@network[0]", "receive_interface") or tunables.dl_if
-local reflector_type = settings and settings:get("sqm-autorate", "@network[0]", "reflector_type") or
-                           tunables.reflector_type
-local max_delta_owd = tunables.max_delta_owd
-local reflector_array_v4 = {}
-local reflector_array_v6 = {}
-
-if reflector_type == "icmp" then
-    reflector_array_v4 = {"46.227.200.54", "46.227.200.55", "194.242.2.2", "194.242.2.3", "149.112.112.10",
-                          "149.112.112.11", "149.112.112.112", "193.19.108.2", "193.19.108.3", "9.9.9.9", "9.9.9.10",
-                          "9.9.9.11"}
-else
-    reflector_array_v4 = {"65.21.108.153", "5.161.66.148", "216.128.149.82", "108.61.220.16", "185.243.217.26",
-                          "185.175.56.188", "176.126.70.119"}
-    reflector_array_v6 = {"2a01:4f9:c010:5469::1", "2a01:4ff:f0:2194::1", "2001:19f0:5c01:1bb6:5400:03ff:febe:3fae",
-                          "2001:19f0:6001:3de9:5400:03ff:febe:3f8e", "2a03:94e0:ffff:185:243:217:0:26",
-                          "2a0d:5600:30:46::2", "2a00:1a28:1157:3ef::2"}
-end
-
 local loglevel = {
     TRACE = {
         level = 6,
@@ -147,6 +111,42 @@ if settings then
 end
 
 use_loglevel = loglevel[string.upper(settings and settings:get("sqm-autorate", "@output[0]", "log_level") or "INFO")]
+
+---------------------------- Begin Variables - External Settings ----------------------------
+local base_ul_rate = settings and tonumber(settings:get("sqm-autorate", "@network[0]", "transmit_kbits_base"), 10) or
+                         tunables.base_ul_rate
+local base_dl_rate = settings and tonumber(settings:get("sqm-autorate", "@network[0]", "receive_kbits_base"), 10) or
+                         tunables.base_dl_rate
+local min_ul_rate = settings and tonumber(settings:get("sqm-autorate", "@network[0]", "transmit_kbits_min"), 10) or
+                        tunables.min_ul_rate
+local min_dl_rate = settings and tonumber(settings:get("sqm-autorate", "@network[0]", "receive_kbits_min"), 10) or
+                        tunables.min_dl_rate
+local stats_file = settings and settings:get("sqm-autorate", "@output[0]", "stats_file") or tunables.stats_file
+local speedhist_file = settings and settings:get("sqm-autorate", "@output[0]", "speed_hist_file") or
+                           tunables.speedhist_file
+local histsize = settings and tonumber(settings:get("sqm-autorate", "@output[0]", "hist_size"), 10) or tunables.histsize
+local enable_verbose_baseline_output = tunables.enable_verbose_baseline_output
+local tick_duration = tunables.tick_duration
+local min_change_interval = tunables.min_change_interval
+local ul_if = settings and settings:get("sqm-autorate", "@network[0]", "transmit_interface") or tunables.ul_if
+local dl_if = settings and settings:get("sqm-autorate", "@network[0]", "receive_interface") or tunables.dl_if
+local reflector_type = settings and settings:get("sqm-autorate", "@network[0]", "reflector_type") or
+                           tunables.reflector_type
+local max_delta_owd = tunables.max_delta_owd
+local reflector_array_v4 = {}
+local reflector_array_v6 = {}
+
+if reflector_type == "icmp" then
+    reflector_array_v4 = {"46.227.200.54", "46.227.200.55", "194.242.2.2", "194.242.2.3", "149.112.112.10",
+                          "149.112.112.11", "149.112.112.112", "193.19.108.2", "193.19.108.3", "9.9.9.9", "9.9.9.10",
+                          "9.9.9.11"}
+else
+    reflector_array_v4 = {"65.21.108.153", "5.161.66.148", "216.128.149.82", "108.61.220.16", "185.243.217.26",
+                          "185.175.56.188", "176.126.70.119"}
+    reflector_array_v6 = {"2a01:4f9:c010:5469::1", "2a01:4ff:f0:2194::1", "2001:19f0:5c01:1bb6:5400:03ff:febe:3fae",
+                          "2001:19f0:6001:3de9:5400:03ff:febe:3f8e", "2a03:94e0:ffff:185:243:217:0:26",
+                          "2a0d:5600:30:46::2", "2a00:1a28:1157:3ef::2"}
+end
 
 ---------------------------- Begin Internal Local Variables ----------------------------
 
