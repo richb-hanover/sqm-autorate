@@ -13,6 +13,8 @@ local lanes = require"lanes".configure()
 local utility = lanes.require "./utility"
 local tunables = lanes.require "./tunables"
 local baseliner = lanes.require "./baseliner"
+local pinger = lanes.require "./pinger"
+local receiver = lanes.require "./receiver"
 local rate_controller = lanes.require "./ratecontroller"
 
 -- Try to load argparse if it's installed
@@ -101,221 +103,6 @@ end
 
 ---------------------------- End Local Variables ----------------------------
 
----------------------------- Begin Local Functions ----------------------------
-
-local function receive_icmp_pkt(pkt_id)
-    utility.logger(utility.loglevel.TRACE, "Entered receive_icmp_pkt() with value: " .. pkt_id)
-
-    -- Read ICMP TS reply
-    local data, sa = socket.recvfrom(sock, 100) -- An IPv4 ICMP reply should be ~56bytes. This value may need tweaking.
-
-    if data then
-        local ip_start = string.byte(data, 1)
-        local ip_ver = bit.rshift(ip_start, 4)
-        local hdr_len = (ip_start - ip_ver * 16) * 4
-
-        if (#data - hdr_len == 20) then
-            if (string.byte(data, hdr_len + 1) == 14) then
-                local ts_resp = vstruct.read("> 2*u1 3*u2 3*u4", string.sub(data, hdr_len + 1, #data))
-                local time_after_midnight_ms = utility.get_time_after_midnight_ms()
-                local src_pkt_id = ts_resp[4]
-                local pos = utility.get_table_position(reflector_array_v4, sa.addr)
-
-                -- A pos > 0 indicates the current sa.addr is a known member of the reflector array
-                if (pos > 0 and src_pkt_id == pkt_id) then
-                    local stats = {
-                        reflector = sa.addr,
-                        original_ts = ts_resp[6],
-                        receive_ts = ts_resp[7],
-                        transmit_ts = ts_resp[8],
-                        rtt = time_after_midnight_ms - ts_resp[6],
-                        uplink_time = ts_resp[7] - ts_resp[6],
-                        downlink_time = time_after_midnight_ms - ts_resp[8]
-                    }
-
-                    utility.logger(utility.loglevel.DEBUG,
-                        "Reflector IP: " .. stats.reflector .. "  |  Current time: " .. time_after_midnight_ms ..
-                            "  |  TX at: " .. stats.original_ts .. "  |  RTT: " .. stats.rtt .. "  |  UL time: " ..
-                            stats.uplink_time .. "  |  DL time: " .. stats.downlink_time)
-                    utility.logger(utility.loglevel.TRACE, "Exiting receive_icmp_pkt() with stats return")
-
-                    return stats
-                end
-            else
-                utility.logger(utility.loglevel.TRACE, "Exiting receive_icmp_pkt() with nil return due to wrong type")
-                return nil
-
-            end
-        else
-            utility.logger(utility.loglevel.TRACE, "Exiting receive_icmp_pkt() with nil return due to wrong length")
-            return nil
-        end
-    else
-        utility.logger(utility.loglevel.TRACE, "Exiting receive_icmp_pkt() with nil return")
-
-        return nil
-    end
-end
-
-local function receive_udp_pkt(pkt_id)
-    utility.logger(utility.loglevel.TRACE, "Entered receive_udp_pkt() with value: " .. pkt_id)
-
-    -- Read UDP TS reply
-    local data, sa = socket.recvfrom(sock, 100) -- An IPv4 ICMP reply should be ~56bytes. This value may need tweaking.
-
-    if data then
-        local ts_resp = vstruct.read("> 2*u1 3*u2 6*u4", data)
-
-        local time_after_midnight_ms = utility.get_time_after_midnight_ms()
-        local src_pkt_id = ts_resp[4]
-        local pos = utility.get_table_position(reflector_array_v4, sa.addr)
-
-        -- A pos > 0 indicates the current sa.addr is a known member of the reflector array
-        if (pos > 0 and src_pkt_id == pkt_id) then
-            local originate_ts = (ts_resp[6] % 86400 * 1000) + (math.floor(ts_resp[7] / 1000000))
-            local receive_ts = (ts_resp[8] % 86400 * 1000) + (math.floor(ts_resp[9] / 1000000))
-            local transmit_ts = (ts_resp[10] % 86400 * 1000) + (math.floor(ts_resp[11] / 1000000))
-
-            local stats = {
-                reflector = sa.addr,
-                original_ts = originate_ts,
-                receive_ts = receive_ts,
-                transmit_ts = transmit_ts,
-                rtt = time_after_midnight_ms - originate_ts,
-                uplink_time = receive_ts - originate_ts,
-                downlink_time = time_after_midnight_ms - transmit_ts
-            }
-
-            utility.logger(utility.loglevel.DEBUG,
-                "Reflector IP: " .. stats.reflector .. "  |  Current time: " .. time_after_midnight_ms .. "  |  TX at: " ..
-                    stats.original_ts .. "  |  RTT: " .. stats.rtt .. "  |  UL time: " .. stats.uplink_time ..
-                    "  |  DL time: " .. stats.downlink_time)
-            utility.logger(utility.loglevel.TRACE, "Exiting receive_udp_pkt() with stats return")
-
-            return stats
-        end
-    else
-        utility.logger(utility.loglevel.TRACE, "Exiting receive_udp_pkt() with nil return")
-
-        return nil
-    end
-end
-
-local function ts_ping_receiver(pkt_id, pkt_type)
-    utility.logger(utility.loglevel.TRACE, "Entered ts_ping_receiver() with value: " .. pkt_id)
-
-    local receive_func = nil
-    if pkt_type == "icmp" then
-        receive_func = receive_icmp_pkt
-    elseif pkt_type == "udp" then
-        receive_func = receive_udp_pkt
-    else
-        utility.logger(utility.loglevel.ERROR, "Unknown packet type specified.")
-    end
-
-    while true do
-        -- If we got stats, drop them onto the stats_queue for processing
-        local stats = receive_func(pkt_id)
-        if stats then
-            stats_queue:send("stats", stats)
-        end
-    end
-end
-
-local function send_icmp_pkt(reflector, pkt_id)
-    -- ICMP timestamp header
-    -- Type - 1 byte
-    -- Code - 1 byte:
-    -- Checksum - 2 bytes
-    -- Identifier - 2 bytes
-    -- Sequence number - 2 bytes
-    -- Original timestamp - 4 bytes
-    -- Received timestamp - 4 bytes
-    -- Transmit timestamp - 4 bytes
-
-    utility.logger(utility.loglevel.TRACE, "Entered send_icmp_pkt() with values: " .. reflector .. " | " .. pkt_id)
-
-    -- Create a raw ICMP timestamp request message
-    local time_after_midnight_ms = utility.get_time_after_midnight_ms()
-    local ts_req = vstruct.write("> 2*u1 3*u2 3*u4", {13, 0, 0, pkt_id, 0, time_after_midnight_ms, 0, 0})
-    local ts_req = vstruct.write("> 2*u1 3*u2 3*u4",
-        {13, 0, utility.calculate_checksum(ts_req), pkt_id, 0, time_after_midnight_ms, 0, 0})
-
-    -- Send ICMP TS request
-    local ok = socket.sendto(sock, ts_req, {
-        family = socket.AF_INET,
-        addr = reflector,
-        port = 0
-    })
-
-    utility.logger(utility.loglevel.TRACE, "Exiting send_icmp_pkt()")
-
-    return ok
-end
-
-local function send_udp_pkt(reflector, pkt_id)
-    -- Custom UDP timestamp header
-    -- Type - 1 byte
-    -- Code - 1 byte:
-    -- Checksum - 2 bytes
-    -- Identifier - 2 bytes
-    -- Sequence number - 2 bytes
-    -- Original timestamp - 4 bytes
-    -- Original timestamp (nanoseconds) - 4 bytes
-    -- Received timestamp - 4 bytes
-    -- Received timestamp (nanoseconds) - 4 bytes
-    -- Transmit timestamp - 4 bytes
-    -- Transmit timestamp (nanoseconds) - 4 bytes
-
-    utility.logger(utility.loglevel.TRACE, "Entered send_udp_pkt() with values: " .. reflector .. " | " .. pkt_id)
-
-    -- Create a raw ICMP timestamp request message
-    local time, time_ns = utility.get_current_time()
-    local ts_req = vstruct.write("> 2*u1 3*u2 6*u4", {13, 0, 0, pkt_id, 0, time, time_ns, 0, 0, 0, 0})
-    local ts_req = vstruct.write("> 2*u1 3*u2 6*u4",
-        {13, 0, utility.calculate_checksum(ts_req), pkt_id, 0, time, time_ns, 0, 0, 0, 0})
-
-    -- Send ICMP TS request
-    local ok = socket.sendto(sock, ts_req, {
-        family = socket.AF_INET,
-        addr = reflector,
-        port = 62222
-    })
-
-    utility.logger(utility.loglevel.TRACE, "Exiting send_udp_pkt()")
-
-    return ok
-end
-
-local function ts_ping_sender(pkt_type, pkt_id, freq)
-    utility.logger(utility.loglevel.TRACE,
-        "Entered ts_ping_sender() with values: " .. freq .. " | " .. pkt_type .. " | " .. pkt_id)
-    local ff = (freq / #reflector_array_v4)
-    local sleep_time_ns = math.floor((ff % 1) * 1e9)
-    local sleep_time_s = math.floor(ff)
-    local ping_func = nil
-
-    if pkt_type == "icmp" then
-        ping_func = send_icmp_pkt
-    elseif pkt_type == "udp" then
-        ping_func = send_udp_pkt
-    else
-        utility.logger(utility.loglevel.ERROR, "Unknown packet type specified.")
-    end
-
-    while true do
-        for _, reflector in ipairs(reflector_array_v4) do
-            ping_func(reflector, pkt_id)
-            utility.nsleep(sleep_time_s, sleep_time_ns)
-        end
-
-    end
-
-    utility.logger(utility.loglevel.TRACE, "Exiting ts_ping_sender()")
-end
-
----------------------------- End Local Functions ----------------------------
-
 ---------------------------- Begin Conductor ----------------------------
 local function conductor()
     print("Starting sqm-autorate.lua v" .. _VERSION)
@@ -362,12 +149,12 @@ local function conductor()
     rate_controller.set_initial_cake_bandwidth()
 
     local threads = {
-        pinger = lanes.gen("*", {
+        pinger_thread = lanes.gen("*", {
             required = {"bit32", "posix.sys.socket", "posix.time", "vstruct"}
-        }, ts_ping_sender)(reflector_type, packet_id, tick_duration),
-        receiver = lanes.gen("*", {
+        }, pinger.ts_ping_sender)(sock, tick_duration, packet_id),
+        receiver_thread = lanes.gen("*", {
             required = {"bit32", "posix.sys.socket", "posix.time", "vstruct"}
-        }, ts_ping_receiver)(packet_id, reflector_type),
+        }, receiver.ts_ping_receiver)(sock, stats_queue, packet_id),
         baseliner_thread = lanes.gen("*", {
             required = {"bit32", "posix", "posix.time"}
         }, baseliner.baseline_calculator)(stats_queue, owd_data, enable_verbose_baseline_output),
