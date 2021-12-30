@@ -32,18 +32,6 @@ utility.loglevel = {
     }
 }
 
-utility.use_loglevel = utility.loglevel[string.upper(
-    utility.get_config_setting("sqm-autorate", "output[0]", "log_level") or "INFO")]
-
--- Basic homegrown logger to keep us from having to import yet another module
-function utility.logger(loglevel, message)
-    if (loglevel.level <= utility.use_loglevel.level) then
-        local cur_date = os.date("%Y%m%dT%H:%M:%S")
-        local out_str = string.format("[%s - %s]: %s", loglevel.name, cur_date, message)
-        print(out_str)
-    end
-end
-
 -- Found this clever function here: https://stackoverflow.com/a/15434737
 -- This function will assist in compatibility given differences between OpenWrt, Turris OS, etc.
 function utility.is_module_available(name)
@@ -85,6 +73,18 @@ function utility.get_config_setting_as_num(config_file_name, config_section, set
         return tonumber(value, 10)
     end
     return nil
+end
+
+utility.use_loglevel = utility.loglevel[string.upper(
+    utility.get_config_setting("sqm-autorate", "output[0]", "log_level") or "INFO")]
+
+-- Basic homegrown logger to keep us from having to import yet another module
+function utility.logger(loglevel, message)
+    if (loglevel.level <= utility.use_loglevel.level) then
+        local cur_date = os.date("%Y%m%dT%H:%M:%S")
+        local out_str = string.format("[%s - %s]: %s", loglevel.name, cur_date, message)
+        print(out_str)
+    end
 end
 
 function utility.a_else_b(a, b)
