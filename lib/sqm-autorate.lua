@@ -12,6 +12,7 @@ local lanes = require"lanes".configure()
 
 local utility = lanes.require "./utility"
 local tunables = lanes.require "./tunables"
+local baseliner = lanes.require "./baseliner"
 
 -- Try to load argparse if it's installed
 local argparse = nil
@@ -492,73 +493,6 @@ local function ratecontrol(owd_data_struct)
     end
 end
 
-local function baseline_calculator(owd_data_struct)
-    local slow_factor = .9
-    local fast_factor = .2
-
-    while true do
-        local _, time_data = stats_queue:receive(nil, "stats")
-        local owd_baseline = owd_data_struct:get("owd_baseline")
-        local owd_recent = owd_data_struct:get("owd_recent")
-
-        if time_data then
-            if not owd_baseline[time_data.reflector] then
-                owd_baseline[time_data.reflector] = {}
-            end
-            if not owd_recent[time_data.reflector] then
-                owd_recent[time_data.reflector] = {}
-            end
-
-            if not owd_baseline[time_data.reflector].up_ewma then
-                owd_baseline[time_data.reflector].up_ewma = time_data.uplink_time
-            end
-            if not owd_recent[time_data.reflector].up_ewma then
-                owd_recent[time_data.reflector].up_ewma = time_data.uplink_time
-            end
-            if not owd_baseline[time_data.reflector].down_ewma then
-                owd_baseline[time_data.reflector].down_ewma = time_data.downlink_time
-            end
-            if not owd_recent[time_data.reflector].down_ewma then
-                owd_recent[time_data.reflector].down_ewma = time_data.downlink_time
-            end
-
-            owd_baseline[time_data.reflector].up_ewma = owd_baseline[time_data.reflector].up_ewma * slow_factor +
-                                                            (1 - slow_factor) * time_data.uplink_time
-            owd_recent[time_data.reflector].up_ewma = owd_recent[time_data.reflector].up_ewma * fast_factor +
-                                                          (1 - fast_factor) * time_data.uplink_time
-            owd_baseline[time_data.reflector].down_ewma = owd_baseline[time_data.reflector].down_ewma * slow_factor +
-                                                              (1 - slow_factor) * time_data.downlink_time
-            owd_recent[time_data.reflector].down_ewma = owd_recent[time_data.reflector].down_ewma * fast_factor +
-                                                            (1 - fast_factor) * time_data.downlink_time
-
-            -- when baseline is above the recent, set equal to recent, so we track down more quickly
-            owd_baseline[time_data.reflector].up_ewma = math.min(owd_baseline[time_data.reflector].up_ewma,
-                owd_recent[time_data.reflector].up_ewma)
-            owd_baseline[time_data.reflector].down_ewma = math.min(owd_baseline[time_data.reflector].down_ewma,
-                owd_recent[time_data.reflector].down_ewma)
-
-            -- Set the values back into the shared tables
-            owd_data_struct:set("owd_baseline", owd_baseline)
-            owd_data_struct:set("owd_recent", owd_recent)
-
-            if enable_verbose_baseline_output then
-                for ref, val in pairs(owd_baseline) do
-                    local up_ewma = utility.a_else_b(val.up_ewma, "?")
-                    local down_ewma = utility.a_else_b(val.down_ewma, "?")
-                    utility.logger(utility.loglevel.INFO, "Reflector " .. ref .. " up baseline = " .. up_ewma ..
-                        " down baseline = " .. down_ewma)
-                end
-
-                for ref, val in pairs(owd_recent) do
-                    local up_ewma = utility.a_else_b(val.up_ewma, "?")
-                    local down_ewma = utility.a_else_b(val.down_ewma, "?")
-                    utility.logger(utility.loglevel.INFO, "Reflector " .. ref .. " up baseline = " .. up_ewma ..
-                        " down baseline = " .. down_ewma)
-                end
-            end
-        end
-    end
-end
 ---------------------------- End Local Functions ----------------------------
 
 ---------------------------- Begin Conductor ----------------------------
@@ -643,9 +577,9 @@ local function conductor()
         receiver = lanes.gen("*", {
             required = {"bit32", "posix.sys.socket", "posix.time", "vstruct"}
         }, ts_ping_receiver)(packet_id, reflector_type),
-        baseliner = lanes.gen("*", {
+        baseliner_thread = lanes.gen("*", {
             required = {"bit32", "posix", "posix.time"}
-        }, baseline_calculator)(owd_data),
+        }, baseliner.baseline_calculator)(stats_queue, owd_data, enable_verbose_baseline_output),
         regulator = lanes.gen("*", {
             required = {"bit32", "posix", "posix.time"}
         }, ratecontrol)(owd_data)
