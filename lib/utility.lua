@@ -1,5 +1,8 @@
 local utility = {}
 
+local math = require "math"
+local time = require "posix.time"
+
 utility.loglevel = {
     TRACE = {
         level = 6,
@@ -80,6 +83,22 @@ function utility.logger(loglevel, message)
         local out_str = string.format("[%s - %s]: %s", loglevel.name, cur_date, message)
         print(out_str)
     end
+end
+
+function utility.a_else_b(a, b)
+    if a then
+        return a
+    else
+        return b
+    end
+end
+
+function utility.nsleep(s, ns)
+    -- nanosleep requires integers
+    time.nanosleep({
+        tv_sec = math.floor(s),
+        tv_nsec = math.floor(((s % 1.0) * 1e9) + ns)
+    })
 end
 
 return utility

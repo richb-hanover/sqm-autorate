@@ -120,22 +120,6 @@ socket.setsockopt(sock, socket.SOL_SOCKET, socket.SO_SNDTIMEO, 0, 500)
 
 ---------------------------- Begin Local Functions ----------------------------
 
-local function a_else_b(a, b)
-    if a then
-        return a
-    else
-        return b
-    end
-end
-
-local function nsleep(s, ns)
-    -- nanosleep requires integers
-    time.nanosleep({
-        tv_sec = math.floor(s),
-        tv_nsec = math.floor(((s % 1.0) * 1e9) + ns)
-    })
-end
-
 local function get_current_time()
     local time_s, time_ns = 0, 0
     local val1, val2 = time.clock_gettime(time.CLOCK_REALTIME)
@@ -409,7 +393,7 @@ local function ts_ping_sender(pkt_type, pkt_id, freq)
     while true do
         for _, reflector in ipairs(reflector_array_v4) do
             ping_func(reflector, pkt_id)
-            nsleep(sleep_time_s, sleep_time_ns)
+            utility.nsleep(sleep_time_s, sleep_time_ns)
         end
 
     end
@@ -563,7 +547,7 @@ local function ratecontrol()
             lastdump_t = now_t
         end
 
-        nsleep(sleep_time_s, sleep_time_ns)
+        utility.nsleep(sleep_time_s, sleep_time_ns)
     end
 end
 
@@ -618,15 +602,15 @@ local function baseline_calculator()
 
             if enable_verbose_baseline_output then
                 for ref, val in pairs(owd_baseline) do
-                    local up_ewma = a_else_b(val.up_ewma, "?")
-                    local down_ewma = a_else_b(val.down_ewma, "?")
+                    local up_ewma = utility.a_else_b(val.up_ewma, "?")
+                    local down_ewma = utility.a_else_b(val.down_ewma, "?")
                     utility.logger(utility.loglevel.INFO, "Reflector " .. ref .. " up baseline = " .. up_ewma ..
                         " down baseline = " .. down_ewma)
                 end
 
                 for ref, val in pairs(owd_recent) do
-                    local up_ewma = a_else_b(val.up_ewma, "?")
-                    local down_ewma = a_else_b(val.down_ewma, "?")
+                    local up_ewma = utility.a_else_b(val.up_ewma, "?")
+                    local down_ewma = utility.a_else_b(val.down_ewma, "?")
                     utility.logger(utility.loglevel.INFO, "Reflector " .. ref .. " up baseline = " .. up_ewma ..
                         " down baseline = " .. down_ewma)
                 end
