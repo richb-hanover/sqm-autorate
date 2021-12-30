@@ -1,9 +1,9 @@
 local pinger = {}
-if setfenv then
-    setfenv(1, pinger) -- for 5.1
-else
-    _ENV = pinger -- for 5.2
-end
+-- if setfenv then
+--     setfenv(1, pinger) -- for 5.1
+-- else
+--     _ENV = pinger -- for 5.2
+-- end
 
 local math = require "math"
 local tunables = require "./tunables"
@@ -18,6 +18,8 @@ local tick_duration = tunables.tick_duration
 
 local reflector_type = utility.get_config_setting("sqm-autorate", "network[0]", "reflector_type") or
                            tunables.reflector_type
+
+local reflector_array_v4 = tunables.reflector_array_v4
 
 function pinger.send_icmp_pkt(sock, reflector, pkt_id)
     -- ICMP timestamp header
@@ -88,7 +90,7 @@ function pinger.ts_ping_sender(sock, pkt_id)
     print(pinger.tick_duration, pinger.reflector_type)
     utility.logger(utility.loglevel.TRACE, "Entered ts_ping_sender() with values: " .. pinger.tick_duration .. " | " ..
         pinger.reflector_type .. " | " .. pkt_id)
-    local ff = (pinger.tick_duration / #tunables.reflector_array_v4)
+    local ff = (pinger.tick_duration / #reflector_array_v4)
     local sleep_time_ns = math.floor((ff % 1) * 1e9)
     local sleep_time_s = math.floor(ff)
     local ping_func = nil
@@ -102,7 +104,7 @@ function pinger.ts_ping_sender(sock, pkt_id)
     end
 
     while true do
-        for _, reflector in ipairs(tunables.reflector_array_v4) do
+        for _, reflector in ipairs(reflector_array_v4) do
             ping_func(sock, reflector, pkt_id)
             utility.nsleep(sleep_time_s, sleep_time_ns)
         end
