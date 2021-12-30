@@ -69,6 +69,11 @@ function ratecontroller.update_cake_bandwidth(iface, rate_in_kbit)
     return is_changed
 end
 
+function ratecontroller.set_initial_cake_bandwidth()
+    ratecontroller.update_cake_bandwidth(dl_if, base_dl_rate)
+    ratecontroller.update_cake_bandwidth(ul_if, base_ul_rate)
+end
+
 function ratecontroller.read_stats_file(file)
     file:seek("set", 0)
     local bytes = file:read()

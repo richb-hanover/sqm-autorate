@@ -347,7 +347,7 @@ local function conductor()
 
     --     dl_if = ifb_name
     -- end
-    utility.logger(utility.loglevel.DEBUG, "Upload iface: " .. ul_if .. " | Download iface: " .. dl_if)
+    -- utility.logger(utility.loglevel.DEBUG, "Upload iface: " .. ul_if .. " | Download iface: " .. dl_if)
 
     rate_controller.setup_bytes_paths()
 
@@ -359,8 +359,7 @@ local function conductor()
     local packet_id = cur_process_id + 32768
 
     -- Set initial TC values
-    update_cake_bandwidth(dl_if, base_dl_rate)
-    update_cake_bandwidth(ul_if, base_ul_rate)
+    rate_controller.set_initial_cake_bandwidth()
 
     local threads = {
         pinger = lanes.gen("*", {
