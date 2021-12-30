@@ -107,7 +107,7 @@ local function conductor()
             required = {"bit32", "posix.sys.socket", "posix.time", "vstruct"}
         }, pinger.ts_ping_sender)(sock, packet_id),
         receiver_thread = lanes.gen("*", {
-            required = {"bit32", "posix.sys.socket", "posix.time", "vstruct"}
+            required = {"bit32", "posix.sys.socket", "posix.time", "vstruct", "./utility", "./baseliner"}
         }, receiver.ts_ping_receiver)("test", "test", "test")
         -- }, receiver.ts_ping_receiver)(sock, stats_queue, packet_id)
         -- baseliner_thread = lanes.gen("*", {
