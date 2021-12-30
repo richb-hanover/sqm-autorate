@@ -87,9 +87,9 @@ function pinger.send_udp_pkt(sock, reflector, pkt_id)
 end
 
 function pinger.ts_ping_sender(sock, pkt_id)
-    print(pinger.tick_duration, pinger.reflector_type)
-    utility.logger(utility.loglevel.TRACE, "Entered ts_ping_sender() with values: " .. pinger.tick_duration .. " | " ..
-        pinger.reflector_type .. " | " .. pkt_id)
+    print(tick_duration, reflector_type)
+    utility.logger(utility.loglevel.TRACE, "Entered ts_ping_sender() with values: " .. tick_duration .. " | " ..
+        reflector_type .. " | " .. pkt_id)
     local ff = (pinger.tick_duration / #reflector_array_v4)
     local sleep_time_ns = math.floor((ff % 1) * 1e9)
     local sleep_time_s = math.floor(ff)
