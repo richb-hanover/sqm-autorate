@@ -765,7 +765,9 @@ local function ratecontrol()
                                 up_del_stat .. " | down_del_stat: " .. down_del_stat)
                     end
                 else
-                    logger(loglevel.WARN, "One or both stats files could not be read. Skipping rate control algorithm.")
+                    logger(loglevel.WARN,
+                        "One or both stats files could not be read. Skipping rate control algorithm.... cur_rx_bytes: " ..
+                            cur_rx_bytes .. " | cur_tx_bytes: " .. cur_tx_bytes)
                 end
             end
         end
